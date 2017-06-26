@@ -1,5 +1,7 @@
 #' Find evolutionarily optimal leaf traits
 #'
+#' @importFrom stats optim
+#' 
 #' @param traits A vector of traits to optimize. Must one or more of stomatal conductance (\code{g_sw}), stomatal ratio (\code{sr}), and leaf size (\code{leafsize}). Partial matching allowed.
 #' @param constraints A list containing lambda (i.e. the cost of water), which must be a scalar. No other constraints are currently implemented.
 #' @param leaf_par A list of leaf parameters. This can be generated using the \code{make_leafpar} function.
