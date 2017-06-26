@@ -88,7 +88,6 @@ make_leafpar <- function(replace = NULL, traits = NULL) {
               sr = 1)
 
   ##### Replace defaults -----
-
   obj %<>% replace_defaults(replace)
 
   ##### Remove traits to be optimized -----
