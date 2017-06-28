@@ -26,6 +26,7 @@ NULL
 #' \code{k_x} \tab partition of gx to spongy mesophyll \tab none \tab 1\cr
 #' \code{V_cmax} \tab maximum rate of carboxylation \tab mol CO2 m\eqn{^{-2}} s\eqn{^{-1}} \tab 50\cr
 #' \code{J_max} \tab potential electron transport \tab mol CO2 m\eqn{^{-2}} s\eqn{^{-1}} \tab 100\cr
+#' \code{R_d} \tab DARK (CHECK) Respiration \tab mol CO2 m\eqn{^{-2}} s\eqn{^{-1}} \tab 2\cr
 #' \code{K_c} \tab Michaelis constant for carboxylation \tab \eqn{\mu}mol mol\eqn{^{-1}} \tab 268.3\cr
 #' \code{K_o} \tab Michaelis constant for oxygenation \tab \eqn{\mu}mol mol\eqn{^{-1}} \tab 165084.2\cr
 #' \code{gamma_star} \tab Chloroplastic CO2 compensation point \tab \eqn{\mu}mol CO2 mol\eqn{^{-1} air} \tab 37.3\cr
@@ -71,16 +72,16 @@ NULL
 make_leafpar <- function(replace = NULL, traits = NULL) {
 
   ##### Defaults -----
-  obj <- list(abs_s = 0.8,
-              abs_l = 0.97,
-              g_xc = 1,
-              g_ic = 1,
-              g_uw = 0.01,
-              k_x = 1,
-              V_cmax = 50,
-              J_max = 100,
-              R_d = 2,
-              K_c = 268.3,
+  obj <- list(abs_s = set_units(0.8, unitless),
+              abs_l = set_units(0.97, unitless),
+              g_xc = set_units(1, mol / (m^2 * s)),
+              g_ic = set_units(1, mol / (m^2 * s)),
+              g_uw = set_units(0.01, mol / (m^2 * s)),
+              k_x = set_units(1, unitless),
+              V_cmax = set_units(50, mol / (m^2 * s)),
+              J_max = set_units(100, mol / (m^2 * s)),
+              R_d = set_units(2, mol / (m^2 * s)),
+              K_c = set_units(268.3, umol / mol),
               K_o = 165084.2,
               gamma_star = 37.3,
               g_sw = 0.5,
