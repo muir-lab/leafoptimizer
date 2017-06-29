@@ -1,3 +1,7 @@
+library(units)
+
+source("R/make_parameters.R")
+
 # Example: find leaf temperature
 
 leaf_par <- make_leafpar(replace = list(leafsize = 1),
