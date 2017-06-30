@@ -81,9 +81,9 @@ make_leafpar <- function(replace = NULL, traits = NULL) {
               V_cmax = set_units(50, umol / (m^2 * s)),
               J_max = set_units(100, umol / (m^2 * s)),
               R_d = set_units(2, umol / (m^2 * s)),
-              K_c = set_units(27.238, Pa), # From Sharkey et al. 2007. Newew source? Check bayCi
-              K_o = set_units(16.582, kPa), # From Sharkey et al. 2007. Newew source? Check bayCi
-              gamma_star = set_units(3.73, Pa), # From Sharkey et al. 2007. Newew source? Check bayCi
+              K_c = set_units(27.238, Pa), # From Sharkey et al. 2007. Newer source? Check bayCi
+              K_o = set_units(16.582, kPa), # From Sharkey et al. 2007. Newer source? Check bayCi
+              gamma_star = set_units(3.73, Pa), # From Sharkey et al. 2007. Newer source? Check bayCi
               g_sw = set_units(0.5, mol / (m^2 * s * Pa)), # CHECK DEFAULT in Pa^-1
               leafsize = set_units(0.1, m),
               sr = set_units(1, unitless))
@@ -91,22 +91,25 @@ make_leafpar <- function(replace = NULL, traits = NULL) {
   ##### Replace defaults -----
   obj %<>% replace_defaults(replace)
 
+  ##### Check values ------
+  stopifnot(obj$abs_s >= set_units(0, unitless) & obj$abs_s <= set_units(1, unitless))
+  stopifnot(obj$abs_l >= set_units(0, unitless) & obj$abs_l <= set_units(1, unitless))
+  stopifnot(obj$g_xc >= set_units(0, mol / (m^2 * s * Pa)))
+  stopifnot(obj$g_ic >= set_units(0, mol / (m^2 * s * Pa)))
+  stopifnot(obj$k_x >= set_units(0, unitless))
+  stopifnot(obj$V_cmax >= set_units(0, umol / (m^2 * s)))
+  stopifnot(obj$J_max >= set_units(0, umol / (m^2 * s)))
+  stopifnot(obj$R_d >= set_units(0, umol / (m^2 * s)))
+  stopifnot(obj$K_c >= set_units(0, Pa))
+  stopifnot(obj$K_o >= set_units(0, kPa))
+  stopifnot(obj$gamma_star >= set_units(0, Pa))
+  stopifnot(obj$g_sw >= set_units(0, umol / (m^2 * s * Pa)))
+  stopifnot(obj$leafsize >= set_units(0, m))
+  stopifnot(obj$sr >= set_units(0, unitless))
+  
   ##### Remove traits to be optimized -----
   for (i in traits) obj[[i]] <- NULL
-
-  ##### Check values ------
-  stopifnot(obj$abs_s >= 0 & obj$abs_s <= 1)
-  stopifnot(obj$abs_l >= 0 & obj$abs_l <= 1)
-  stopifnot(obj$g_xc >= 0)
-  stopifnot(obj$g_ic >= 0)
-  stopifnot(obj$k_x >= 0)
-  stopifnot(obj$V_cmax >= 0)
-  stopifnot(obj$J_max >= 0)
-  stopifnot(obj$R_d >= 0)
-  stopifnot(obj$K_c >= 0)
-  stopifnot(obj$K_o >= 0)
-  stopifnot(obj$gamma_star >= 0)
-
+  
   ##### Assign class and return -----
   class(obj) <- "leaf_par"
 
@@ -227,8 +230,18 @@ make_constants <- function(replace = NULL) {
   obj %<>% replace_defaults(replace)
 
   ##### Check values ------
-  # NOT DONE YET!
-  
+  stopifnot(obj$thetaJ >= set_units(0, unitless) & obj$thetaJ <= set_units(1, unitless))
+  stopifnot(obj$phi >= set_units(0, unitless) & obj$phi <= set_units(1, unitless))
+  stopifnot(obj$s >= set_units(0, W / (m ^ 2 * K ^ 4)))
+  stopifnot(obj$R_air >= set_units(0, J / (kg * K)))
+  stopifnot(obj$eT >= set_units(0, unitless))
+  stopifnot(obj$D_h0 >= set_units(0, m ^ 2 / s))
+  stopifnot(obj$D_m0 >= set_units(0, m ^ 2 / s))
+  stopifnot(obj$D_w0 >= set_units(0, m ^ 2 / s))
+  stopifnot(obj$t_air >= set_units(0, unitless))
+  stopifnot(obj$G >= set_units(0, m / s ^ 2))
+  stopifnot(obj$c_p >= set_units(0, J / (g * K)))
+
   ##### Assign class and return -----
   class(obj) <- "constants"
 
@@ -263,6 +276,7 @@ make_constants <- function(replace = NULL) {
 
 replace_defaults <- function(obj, replace) {
 
+  stopifnot(all(sapply(replace, inherits, what = "units")))
   stopifnot(all(sapply(replace, is.numeric)))
   stopifnot(all(sapply(replace, function(X) length(X) == 1)))
 
