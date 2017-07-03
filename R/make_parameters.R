@@ -55,7 +55,7 @@ NULL
 #' \code{eT} \tab exponent for temperature dependence of diffusion \tab none? \tab 1.75\cr
 #' \code{Nu} \tab Nusselt number \tab none \tab *\cr
 #' \code{D_m0} \tab diffusion coefficient for momentum in air at 0 C \tab m\eqn{^2} s\eqn{^{-1}} \tab 13.3\cr
-#' \code{t_air} \tab coefficient of thermal expansion of air \tab none? \tab 3.66e-3\cr
+#' \code{t_air} \tab coefficient of thermal expansion of air \tab 1 / K \tab 3.66e-3\cr
 #' \code{G} \tab gravitational acceleration \tab m s\eqn{^{-2}} \tab 9.8\cr
 #' \code{Sh} \tab Sherwood number \tab none \tab *\cr
 #' \code{D_h0} \tab diffusion coefficient for heat in air at 0 C \tab m\eqn{^2} s\eqn{^{-1}} \tab 1.9e-5\cr
@@ -67,7 +67,7 @@ NULL
 #'
 #' @export
 #' @importFrom magrittr %<>% %>%
-#' @importFrom units set_units
+#' @importFrom units kPa m mol Pa s set_units umol unitless
 
 make_leafpar <- function(replace = NULL, traits = NULL) {
 
@@ -121,7 +121,7 @@ make_leafpar <- function(replace = NULL, traits = NULL) {
 #' @rdname make_parameters
 #' @export
 #' @importFrom magrittr %<>% %>%
-#' @importFrom units set_units
+#' @importFrom units K mset_units umol unitless W
 
 
 make_enviropar <- function(replace = NULL) {
@@ -161,7 +161,7 @@ make_enviropar <- function(replace = NULL) {
 #' @rdname make_parameters
 #' @export
 #' @importFrom magrittr %<>% %>%
-#' @importFrom units set_units
+#' @importFrom units g J K kg m s set_units unitless W
 
 make_constants <- function(replace = NULL) {
 
@@ -201,7 +201,7 @@ make_constants <- function(replace = NULL) {
               D_h0 = set_units(1.9e-5, m ^ 2 / s),
               D_m0 = set_units(13.3, m ^ 2 / s),
               D_w0 = set_units(21.2, m ^ 2 / s),
-              t_air = set_units(3.66e-3, unitless),
+              t_air = set_units(3.66e-3, 1 / K),
               G = set_units(9.8, m / s ^ 2),
               sh_constant = function(type) {
 
@@ -238,7 +238,7 @@ make_constants <- function(replace = NULL) {
   stopifnot(obj$D_h0 >= set_units(0, m ^ 2 / s))
   stopifnot(obj$D_m0 >= set_units(0, m ^ 2 / s))
   stopifnot(obj$D_w0 >= set_units(0, m ^ 2 / s))
-  stopifnot(obj$t_air >= set_units(0, unitless))
+  stopifnot(obj$t_air >= set_units(0, 1 / K))
   stopifnot(obj$G >= set_units(0, m / s ^ 2))
   stopifnot(obj$c_p >= set_units(0, J / (g * K)))
 

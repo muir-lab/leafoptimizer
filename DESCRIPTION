@@ -6,7 +6,9 @@ Description: What the package does (one paragraph).
 Depends: R (>= 3.3.3),
          units (>= 0.4.0)
 Imports: dplyr (>= 0.6.0),
-         magrittr (>= 1.5)
+         magrittr (>= 1.5),
+         units (>= 0.4.0)
+Suggests: testthat
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true

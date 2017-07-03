@@ -129,7 +129,7 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
 #' @param eT Exponent for temperature dependence of diffusion
 #' @param G Gravitational acceleration in m s^-2
 #' @param nu_constant Function to calculate Nusselt number constants
-#' @param t_air Coefficient of thermal expansion of air
+#' @param t_air Coefficient of thermal expansion of air in 1 / K
 #'
 
 .get_gh <- function(T_leaf, surface, pars) {
@@ -153,7 +153,9 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
 
 .get_Dx <- function(D_0, Temp, eT, P) {
 
-  D_0 * (Temp / 273.15) ^ eT * (101.3246 / P)
+  D_0 * 
+    as.numeric((set_units(Temp, K) / set_units(273.15, K))) ^ as.numeric(eT) * 
+    as.numeric((set_units(101.3246, kPa) / set_units(P, kPa)))
 
 }
 
@@ -182,7 +184,8 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
 
 .get_Tv <- function(Temp, p_air, P) {
 
-  Temp / (1 - (p_air / P) * 0.388)
+  set_units(Temp, K) / 
+    (set_units(1, unitless) - (set_units(p_air, kPa) / set_units(P, kPa)) * 0.388)
 
 }
 
@@ -196,15 +199,18 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
   # Goff-Gratch equation (see http://cires1.colorado.edu/~voemel/vp.html)
   # This assumes P = 1 atm = 101.3246 kPa, otherwise boiling temperature needs to change
   # This returns p_s in hPa
+  Temp %<>% set_units(K) %>% as.numeric()
+  P %<>% set_units(hPa) %>% as.numeric()
   p_s <- 10 ^ (-7.90298 * (373.16 / Temp - 1) +
                  5.02808 * log10(373.16 / Temp) -
                  1.3816e-7 * (10 ^ (11.344 * (1 - Temp / 373.16) - 1)) +
                  8.1328e-3 * (10 ^ (-3.49149 * (373.16 / Temp - 1)) - 1) +
-                 log10(P * 10))
+                 log10(P))
   # Convert from hPa to mol m ^ -3 using ideal gas law
   # (p_s * 100) / (8.314 * Temp)
   # Convert to kPa
-  p_s / 10
+  p_s %<>% set_units(kPa)
+  p_s
 
 }
 
@@ -238,14 +244,14 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
   Ar <- Gr / Re ^ 2
 
   # Forced or free convection? Cutoffs based on Nobel (2009) pg.344
-  if (Ar < 0.1) {
+  if (Ar < set_units(0.1, unitless)) {
     type <- "forced"
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
     Nu <- cons$a * Re ^ cons$b
     return(Nu)
   }
 
-  if (Ar >= 0.1 & Ar <= 10) {
+  if (Ar >= set_units(0.1, unitless) & Ar <= set_units(10, unitless)) {
     type <- "forced"
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
     Nu_forced <- cons$a * Re ^ cons$b
@@ -258,7 +264,7 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
     return(Nu)
   }
 
-  if (Ar > 10) {
+  if (Ar > set_units(10, unitless)) {
     type <- "free"
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
     Nu <- cons$a * Gr ^ cons$b
@@ -271,7 +277,7 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
 #' L: Latent heat flux density (W m^-2)
 #'
 #' @inheritParams .get_H
-#' @param h_v latent heat of vapourization in J mol^-1
+#' @param h_vap latent heat of vapourization in J mol^-1
 #' @param g_sw stomatal conductance in m s^-1
 #' @param g_uw stomatal conductance in m s^-1
 #' @param g_tw: total conductance to water vapour in m s^-1
@@ -280,12 +286,20 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
 .get_L <- function(T_leaf, pars) {
 
   g_bw <- sum(.get_gbw(T_leaf, "lower", pars), .get_gbw(T_leaf, "upper", pars))
-  warning("Where do h_v constants come from?")
-  h_v <- 4.504e4 - 41.94 * T_leaf
+  # Equation from Foster and Smith 1986 seems to be off:
+  # h_vap <- 4.504e4 - 41.94 * T_leaf
+  
+  # Instead, using regression based on data from Nobel (2009, 4th Ed, Appendix 1)
+  # T_K <- 273.15 + c(0, 10, 20, 25, 30, 40, 50, 60)
+  # h_vap <- 1e3 * c(45.06, 44.63, 44.21, 44, 43.78, 43.35, 42.91, 42.47) # (in J / mol)
+  # fit <- lm(Hvap ~ temp)
+  h_vap <- set_units(56847.68250, J / mol) - set_units(43.12514, J / mol / K) * set_units(T_leaf, K)
+  h_vap %<>% set_units(J / mol)
+  
   warning("Incorporate stomatal ratio into .get_L")
   g_tw <- 1 / (1 / pars$g_sw + 1 / pars$g_uw) + g_bw
 
-  L <- prod(h_v,
+  L <- prod(h_vap,
             g_tw,
             (.get_ps(T_leaf, pars$P) - pars$RH * .get_ps(pars$T_air, pars$P)))
 
