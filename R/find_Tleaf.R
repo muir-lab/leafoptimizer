@@ -104,10 +104,10 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
   warning("g_h is several orders of magnitude too low and should be in units of m/s")
   g_h <- sum(.get_gh(T_leaf, "lower", pars), .get_gh(T_leaf, "upper", pars))
 
-  H <- prod(P_a, pars$c_p, g_h, (T_leaf - pars$T_air))
-
+  H <- P_a * pars$c_p * g_h * (T_leaf - pars$T_air)
+  H %<>% set_units(W / m ^ 2)
   H
-
+  
 }
 
 #' P_a: density of dry air (g m^-3)
@@ -117,7 +117,8 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
 #'
 
 .get_Pa <- function(T_leaf, pars) {
-  1e3 * (1e3 * pars$P) / (pars$R_air * (pars$T_air + T_leaf) / 2)
+  P_a <- pars$P / (pars$R_air * (pars$T_air + T_leaf) / 2)
+  P_a %<>% set_units(g / m^3)
 }
 
 #' g_h: boundary layer conductance to heat (m s^-1)
@@ -171,7 +172,7 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
   Tv_leaf <- .get_Tv(T_leaf, .get_ps(T_leaf, pars$P), pars$P)
   Tv_air <-	.get_Tv(pars$T_air, pars$RH * .get_ps(pars$T_air, pars$P), pars$P)
   D_m <- .get_Dx(pars$D_m0, (pars$T_air + T_leaf) / 2, pars$eT, pars$P)
-  Gr <- abs(pars$t_air * pars$G * pars$leafsize ^ 3 * (Tv_leaf - Tv_air) / D_m ^ 2)
+  Gr <- pars$t_air * pars$G * pars$leafsize ^ 3 * abs(Tv_leaf - Tv_air) / D_m ^ 2
 
   Gr
 
@@ -342,35 +343,36 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
   D_w <- .get_Dx(pars$D_w0, (pars$T_air + T_leaf) / 2, pars$eT, pars$P)
 
   # Forced or free convection? Cutoffs based on Nobel (2009) pg.344
-  if (Ar < 0.1) {
+  if (Ar < set_units(0.1, unitless)) {
     type <- "forced"
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
     Nu <- cons$a * Re ^ cons$b
-    Sh <- Nu * (D_h / D_w) ^ pars$sh_constant(type)
+    Sh <- Nu * as.numeric(D_h / D_w) ^ pars$sh_constant(type)
     return(Sh)
   }
 
-  if (Ar >= 0.1 & Ar <= 10) {
+  if (Ar >= set_units(0.1, unitless) & Ar <= set_units(10, unitless)) {
     type <- "forced"
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
     Nu_forced <- cons$a * Re ^ cons$b
-    Sh_forced <- Nu_forced * (D_h / D_w) ^ pars$sh_constant(type)
+    Sh_forced <- Nu_forced * as.numeric(D_h / D_w) ^ pars$sh_constant(type)
 
     type <- "free"
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
     Nu_free <- cons$a * Gr ^ cons$b
-    Sh_free <- Nu_free * (D_h / D_w) ^ pars$sh_constant(type)
+    Sh_free <- Nu_free * as.numeric(D_h / D_w) ^ pars$sh_constant(type)
 
     warning("check on exponents in mixed convection Sherwood equation in .get_sh")
-    Sh <- (Sh_forced ^ 3.5 + Sh_free ^ 3.5) ^ (1 / 3.5)
+    Sh <- (as.numeric(Sh_forced) ^ 3.5 + as.numeric(Sh_free) ^ 3.5) ^ (1 / 3.5)
+    Sh %<>% set_units(unitless)
     return(Sh)
   }
 
-  if (Ar > 10) {
+  if (Ar > set_units(10, unitless)) {
     type <- "free"
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
     Nu <- cons$a * Gr ^ cons$b
-    Sh <- Nu * (D_h / D_w) ^ pars$sh_constant(type)
+    Sh <- Nu * as.numeric(D_h / D_w) ^ pars$sh_constant(type)
     return(Sh)
   }
 

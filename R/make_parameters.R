@@ -181,8 +181,8 @@ make_constants <- function(replace = NULL) {
                 type %<>% match.arg(c("free", "forced"))
 
                 if (identical(type, "forced")) {
-                  if (Re <= 4000) ret <- list(a = 0.6, b = 0.5)
-                  if (Re > 4000) ret <- list(a = 0.032, b = 0.8)
+                  if (Re <= set_units(4000, unitless)) ret <- list(a = 0.6, b = 0.5)
+                  if (Re > set_units(4000, unitless)) ret <- list(a = 0.032, b = 0.8)
                   return(ret)
                 }
 

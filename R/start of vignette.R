@@ -15,10 +15,10 @@ R_abs <- .get_Rabs(pars)
 ##### R_abs: total absorbed radiation (W m^-2) -----
 R_r <- .get_Rr(pars)
 
-**** NEED TO FIX H AND L AFTER UNITS ****
 ##### H: -----
 H <- .get_H(set_units(300, K), pars) # I think H is way too low.
 
+**** NEED TO FIX L AFTER UNITS ****
 ##### L: -----
 L <- .get_L(set_units(300, K), pars) # L may be too high??
 

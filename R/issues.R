@@ -1,5 +1,6 @@
 # Issues
 
+# NEED TO GET BOUNDARY LAYER AND OTHER CONDUCTANCES IN SAME UNITS!!
 # what are defaults for g_xc and g_ic?
 # how do K_c, K_o and gammaStar covary?
 # in get_Dx, where does 1.75 exponent come from?
