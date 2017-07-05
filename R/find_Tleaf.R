@@ -298,6 +298,7 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
   h_vap %<>% set_units(J / mol)
   
   warning("Incorporate stomatal ratio into .get_L")
+  warning("convert to engineering units using ideal gas law")
   g_tw <- 1 / (1 / pars$g_sw + 1 / pars$g_uw) + g_bw
 
   L <- prod(h_vap,
