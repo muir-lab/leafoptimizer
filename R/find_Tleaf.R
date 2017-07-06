@@ -13,8 +13,8 @@ find_Tleaf <- function(leaf_par, enviro_par, constants) {
   soln <- stats::optim(enviro_par$T_air, engery_balance, leaf_par = leaf_par,
                        enviro_par = enviro_par, constants = constants,
                        abs_val = TRUE, method = "Brent",
-                       lower = enviro_par$T_air - 30,
-                       upper = enviro_par$T_air + 30)
+                       lower = enviro_par$T_air - set_units(30, K),
+                       upper = enviro_par$T_air + set_units(30, K))
 
   ##### Check or report on convergence?? -----
   # ?
@@ -39,24 +39,25 @@ find_Tleaf <- function(leaf_par, enviro_par, constants) {
 engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FALSE) {
 
   ##### Checks -----
-  traits <- .missing_traits(character(0))
-  check_leafpar(leaf_par, traits)
-  check_enviropar(enviro_par)
-  check_constants(constants)
+  warning("implement checks in energy_balance")
+  #traits <- .missing_traits(character(0))
+  #check_leafpar(leaf_par, traits)
+  #check_enviropar(enviro_par)
+  #check_constants(constants)
 
   pars <- c(leaf_par, enviro_par, constants)
 
   ##### R_abs: total absorbed radiation (W m^-2) -----
-  R_abs <- .get_Rabs(pars)
+  R_abs <- .get_Rabs(pars) %>% as.numeric()
 
   ##### R_r: longwave re-radiation (W m^-2) -----
-  R_r <- .get_Rr(pars)
+  R_r <- .get_Rr(pars) %>% as.numeric()
 
   ##### H: sensible heat flux density (W m^-2) -----
-  H <- .get_H(T_leaf, pars)
+  H <- .get_H(T_leaf, pars) %>% as.numeric()
 
   ##### L: latent heat flux density (W m^-2) -----
-  L <- .get_L(T_leaf, pars)
+  L <- .get_L(T_leaf, pars) %>% as.numeric()
 
   ##### Return -----
   if (abs_val) return(abs(R_abs - (R_r + H + L)))
@@ -207,8 +208,7 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
                  1.3816e-7 * (10 ^ (11.344 * (1 - Temp / 373.16) - 1)) +
                  8.1328e-3 * (10 ^ (-3.49149 * (373.16 / Temp - 1)) - 1) +
                  log10(P))
-  # Convert from hPa to mol m ^ -3 using ideal gas law
-  # (p_s * 100) / (8.314 * Temp)
+
   # Convert to kPa
   p_s %<>% set_units(kPa)
   p_s
@@ -286,10 +286,12 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
 
 .get_L <- function(T_leaf, pars) {
 
+  warning("Incorporate stomatal ratio into .get_L")
+  
   g_bw <- sum(.get_gbw(T_leaf, "lower", pars), .get_gbw(T_leaf, "upper", pars))
+  
   # Equation from Foster and Smith 1986 seems to be off:
   # h_vap <- 4.504e4 - 41.94 * T_leaf
-  
   # Instead, using regression based on data from Nobel (2009, 4th Ed, Appendix 1)
   # T_K <- 273.15 + c(0, 10, 20, 25, 30, 40, 50, 60)
   # h_vap <- 1e3 * c(45.06, 44.63, 44.21, 44, 43.78, 43.35, 42.91, 42.47) # (in J / mol)
@@ -297,14 +299,19 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
   h_vap <- set_units(56847.68250, J / mol) - set_units(43.12514, J / mol / K) * set_units(T_leaf, K)
   h_vap %<>% set_units(J / mol)
   
-  warning("Incorporate stomatal ratio into .get_L")
-  warning("convert to engineering units using ideal gas law")
-  g_tw <- 1 / (1 / pars$g_sw + 1 / pars$g_uw) + g_bw
+  # Convert stomatal and cuticular conductance from molar to 'engineering' units
+  # See email from Tom Buckley (July 4, 2017)
+  g_sw1 <- set_units(pars$g_sw * pars$R * ((T_leaf + pars$T_air) / 2), m / s)
+  g_uw1 <- set_units(pars$g_uw * pars$R * ((T_leaf + pars$T_air) / 2), m / s)
+  g_tw <- 1 / (1 / g_sw1 + 1 / g_uw1) + g_bw
 
-  L <- prod(h_vap,
-            g_tw,
-            (.get_ps(T_leaf, pars$P) - pars$RH * .get_ps(pars$T_air, pars$P)))
+  # Water vapour differential converted from kPa to mol m ^ -3 using ideal gas law
+  dWV <- .get_ps(T_leaf, pars$P) / (pars$R * T_leaf) - 
+    pars$RH * .get_ps(pars$T_air, pars$P) / (pars$R * pars$T_air)
+  dWV %<>% set_units(mol / m ^ 3)
 
+  L <- h_vap * g_tw * dWV
+  L %<>% set_units(W / m ^ 2)
   L
 
 }
@@ -378,3 +385,8 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
   }
 
 }
+
+#' R: Latent heat flux density (W m^-2)
+#'
+#' @inheritParams .get_H
+#' 

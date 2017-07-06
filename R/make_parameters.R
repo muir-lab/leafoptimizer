@@ -51,6 +51,7 @@ NULL
 #' \code{thetaJ} \tab curvature factor for light-response curve \tab none \tab 0.86\cr
 #' \code{phi} \tab effective maximum quantum yield of electrons from incident irradiance \tab e- / hv \tab 0.25\cr
 #' \code{s} \tab Stephan-Boltzmann constant \tab W m\eqn{^{-2}} K\eqn{^{-4}} \tab 5.67e-08\cr
+#' \code{R} \tab ideal gas constant \tab J / (mol K) \tab 8.3144598\cr
 #' \code{R_air} \tab specific gas constant for dry air \tab J / (kg K) \tab 287.058\cr
 #' \code{eT} \tab exponent for temperature dependence of diffusion \tab none? \tab 1.75\cr
 #' \code{Nu} \tab Nusselt number \tab none \tab *\cr
@@ -74,9 +75,9 @@ make_leafpar <- function(replace = NULL, traits = NULL) {
   ##### Defaults -----
   obj <- list(abs_s = set_units(0.8, unitless),
               abs_l = set_units(0.97, unitless),
-              g_xc = set_units(1, mol / (m^2 * s * Pa)), # CHECK DEFAULT in Pa^-1
-              g_ic = set_units(1, mol / (m^2 * s * Pa)), # CHECK DEFAULT in Pa^-1
-              g_uw = set_units(0.01, mol / (m^2 * s * Pa)), # CHECK DEFAULT in Pa^-1
+              g_xc = set_units(0.1, mol / (m^2 * s * Pa)), # CHECK DEFAULT in Pa^-1
+              g_ic = set_units(0.1, mol / (m^2 * s * Pa)), # CHECK DEFAULT in Pa^-1
+              g_uw = set_units(0.001, mol / (m^2 * s * Pa)), # CHECK DEFAULT in Pa^-1
               k_x = set_units(1, unitless),
               V_cmax = set_units(50, umol / (m^2 * s)),
               J_max = set_units(100, umol / (m^2 * s)),
@@ -84,7 +85,7 @@ make_leafpar <- function(replace = NULL, traits = NULL) {
               K_c = set_units(27.238, Pa), # From Sharkey et al. 2007. Newer source? Check bayCi
               K_o = set_units(16.582, kPa), # From Sharkey et al. 2007. Newer source? Check bayCi
               gamma_star = set_units(3.73, Pa), # From Sharkey et al. 2007. Newer source? Check bayCi
-              g_sw = set_units(0.5, mol / (m^2 * s * Pa)), # CHECK DEFAULT in Pa^-1
+              g_sw = set_units(0.05, mol / (m^2 * s * Pa)), # CHECK DEFAULT in Pa^-1
               leafsize = set_units(0.1, m),
               sr = set_units(1, unitless))
 
@@ -169,6 +170,7 @@ make_constants <- function(replace = NULL) {
   obj <- list(thetaJ = set_units(0.86, unitless),
               phi = set_units(0.25, unitless), # Foster and Smith reported as e / hv
               s = set_units(5.67e-08, W / (m ^ 2 * K ^ 4)),
+              R = set_units(8.3144598, J / (mol * K)),
               R_air = set_units(287.058, J / (kg * K)),
               eT = set_units(1.75, unitless),
               nu_constant = function(Re, type, T_air, T_leaf, surface) {
@@ -233,6 +235,7 @@ make_constants <- function(replace = NULL) {
   stopifnot(obj$thetaJ >= set_units(0, unitless) & obj$thetaJ <= set_units(1, unitless))
   stopifnot(obj$phi >= set_units(0, unitless) & obj$phi <= set_units(1, unitless))
   stopifnot(obj$s >= set_units(0, W / (m ^ 2 * K ^ 4)))
+  stopifnot(obj$R >= set_units(0, J / (mol * K)))
   stopifnot(obj$R_air >= set_units(0, J / (kg * K)))
   stopifnot(obj$eT >= set_units(0, unitless))
   stopifnot(obj$D_h0 >= set_units(0, m ^ 2 / s))
