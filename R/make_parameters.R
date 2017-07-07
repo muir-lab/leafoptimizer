@@ -55,7 +55,7 @@ NULL
 #' \code{R_air} \tab specific gas constant for dry air \tab J / (kg K) \tab 287.058\cr
 #' \code{eT} \tab exponent for temperature dependence of diffusion \tab none? \tab 1.75\cr
 #' \code{Nu} \tab Nusselt number \tab none \tab *\cr
-#' \code{D_m0} \tab diffusion coefficient for momentum in air at 0 C \tab m\eqn{^2} s\eqn{^{-1}} \tab 13.3\cr
+#' \code{D_m0} \tab diffusion coefficient for momentum in air at 0 C \tab m\eqn{^2} s\eqn{^{-1}} \tab 13.3 \times 10\eqn{^{-6}}\cr
 #' \code{t_air} \tab coefficient of thermal expansion of air \tab 1 / K \tab 3.66e-3\cr
 #' \code{G} \tab gravitational acceleration \tab m s\eqn{^{-2}} \tab 9.8\cr
 #' \code{Sh} \tab Sherwood number \tab none \tab *\cr
@@ -75,9 +75,9 @@ make_leafpar <- function(replace = NULL, traits = NULL) {
   ##### Defaults -----
   obj <- list(abs_s = set_units(0.8, unitless),
               abs_l = set_units(0.97, unitless),
-              g_xc = set_units(0.1, mol / (m^2 * s * Pa)), # CHECK DEFAULT in Pa^-1
-              g_ic = set_units(0.1, mol / (m^2 * s * Pa)), # CHECK DEFAULT in Pa^-1
-              g_uw = set_units(0.001, mol / (m^2 * s * Pa)), # CHECK DEFAULT in Pa^-1
+              g_xc = set_units(10, umol / (m^2 * s * Pa)), # CHECK DEFAULT in Pa^-1
+              g_ic = set_units(10, umol / (m^2 * s * Pa)), # CHECK DEFAULT in Pa^-1
+              g_uw = set_units(0.1, umol / (m^2 * s * Pa)), # CHECK DEFAULT in Pa^-1
               k_x = set_units(1, unitless),
               V_cmax = set_units(50, umol / (m^2 * s)),
               J_max = set_units(100, umol / (m^2 * s)),
@@ -85,7 +85,7 @@ make_leafpar <- function(replace = NULL, traits = NULL) {
               K_c = set_units(27.238, Pa), # From Sharkey et al. 2007. Newer source? Check bayCi
               K_o = set_units(16.582, kPa), # From Sharkey et al. 2007. Newer source? Check bayCi
               gamma_star = set_units(3.73, Pa), # From Sharkey et al. 2007. Newer source? Check bayCi
-              g_sw = set_units(0.05, mol / (m^2 * s * Pa)), # CHECK DEFAULT in Pa^-1
+              g_sw = set_units(5, umol / (m^2 * s * Pa)), # CHECK DEFAULT in Pa^-1
               leafsize = set_units(0.1, m),
               sr = set_units(1, unitless))
 
@@ -201,8 +201,8 @@ make_constants <- function(replace = NULL) {
 
               },
               D_h0 = set_units(1.9e-5, m ^ 2 / s),
-              D_m0 = set_units(13.3, m ^ 2 / s),
-              D_w0 = set_units(21.2, m ^ 2 / s),
+              D_m0 = set_units(13.3e-6, m ^ 2 / s),
+              D_w0 = set_units(21.2e-6, m ^ 2 / s),
               t_air = set_units(3.66e-3, 1 / K),
               G = set_units(9.8, m / s ^ 2),
               sh_constant = function(type) {

@@ -16,10 +16,13 @@ R_abs <- .get_Rabs(pars)
 R_r <- .get_Rr(pars)
 
 ##### H: -----
-H <- .get_H(set_units(300, K), pars) # I think H is way too low.
+H <- .get_H(set_units(295, K), pars)
 
 ##### L: -----
-L <- .get_L(set_units(300, K), pars) # L may be too high??
+L <- .get_L(set_units(295, K), pars) # L may be too high??
+
+leaf_par$g_sw<- set_units(0.5, umol/m^2/Pa/s)
+engery_balance(set_units(290, K), leaf_par, enviro_par, constants)
 
 T_leaf <- find_Tleaf(leaf_par, enviro_par, constants)
 

@@ -100,9 +100,11 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
 
 .get_H <- function(T_leaf, pars) {
 
-  P_a <- .get_Pa(T_leaf, pars) # correct
+  # Density of dry air
+  P_a <- .get_Pa(T_leaf, pars)
 
-  warning("g_h is several orders of magnitude too low and should be in units of m/s")
+  # Boundary layer conductance to heat
+  warning("check that I am supposed to sum conductances from each surface")
   g_h <- sum(.get_gh(T_leaf, "lower", pars), .get_gh(T_leaf, "upper", pars))
 
   H <- P_a * pars$c_p * g_h * (T_leaf - pars$T_air)
@@ -248,27 +250,35 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
   if (Ar < set_units(0.1, unitless)) {
     type <- "forced"
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
+    Re %<>% as.numeric()
     Nu <- cons$a * Re ^ cons$b
+    Nu %<>% set_units(unitless)
     return(Nu)
   }
 
   if (Ar >= set_units(0.1, unitless) & Ar <= set_units(10, unitless)) {
     type <- "forced"
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
+    Re %<>% as.numeric()
     Nu_forced <- cons$a * Re ^ cons$b
 
     type <- "free"
+    Re %<>% set_units(unitless)
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
+    Gr %<>% as.numeric()
     Nu_free <- cons$a * Gr ^ cons$b
 
     Nu <- (Nu_forced ^ 3.5 + Nu_free ^ 3.5) ^ (1 / 3.5)
+    Nu %<>% set_units(unitless)
     return(Nu)
   }
 
   if (Ar > set_units(10, unitless)) {
     type <- "free"
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
+    Gr %<>% as.numeric()
     Nu <- cons$a * Gr ^ cons$b
+    Nu %<>% set_units(unitless)
     return(Nu)
   }
 
@@ -303,7 +313,7 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
   # See email from Tom Buckley (July 4, 2017)
   g_sw1 <- set_units(pars$g_sw * pars$R * ((T_leaf + pars$T_air) / 2), m / s)
   g_uw1 <- set_units(pars$g_uw * pars$R * ((T_leaf + pars$T_air) / 2), m / s)
-  g_tw <- 1 / (1 / g_sw1 + 1 / g_uw1) + g_bw
+  g_tw <- 1 / (1 / g_sw1 + 1 / g_uw1) + 1 / g_bw
 
   # Water vapour differential converted from kPa to mol m ^ -3 using ideal gas law
   dWV <- .get_ps(T_leaf, pars$P) / (pars$R * T_leaf) - 
@@ -354,7 +364,9 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
   if (Ar < set_units(0.1, unitless)) {
     type <- "forced"
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
+    Re %<>% as.numeric()
     Nu <- cons$a * Re ^ cons$b
+    Nu %<>% set_units(unitless)
     Sh <- Nu * as.numeric(D_h / D_w) ^ pars$sh_constant(type)
     return(Sh)
   }
@@ -362,12 +374,17 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
   if (Ar >= set_units(0.1, unitless) & Ar <= set_units(10, unitless)) {
     type <- "forced"
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
+    Re %<>% as.numeric()
     Nu_forced <- cons$a * Re ^ cons$b
+    Nu_forced %<>% set_units(unitless)
     Sh_forced <- Nu_forced * as.numeric(D_h / D_w) ^ pars$sh_constant(type)
 
     type <- "free"
+    Re %<>% set_units(unitless)
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
+    Gr %<>% as.numeric()
     Nu_free <- cons$a * Gr ^ cons$b
+    Nu_free %<>% set_units(unitless)
     Sh_free <- Nu_free * as.numeric(D_h / D_w) ^ pars$sh_constant(type)
 
     warning("check on exponents in mixed convection Sherwood equation in .get_sh")
@@ -378,8 +395,11 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants, abs_val = FA
 
   if (Ar > set_units(10, unitless)) {
     type <- "free"
+    Re %<>% as.numeric()
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
+    Gr %<>% as.numeric()
     Nu <- cons$a * Gr ^ cons$b
+    Nu %<>% set_units(unitless)
     Sh <- Nu * as.numeric(D_h / D_w) ^ pars$sh_constant(type)
     return(Sh)
   }
