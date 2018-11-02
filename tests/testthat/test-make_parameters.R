@@ -17,8 +17,8 @@ test_that("replace leafpar defaults works", {
   expect_error(make_leafpar(replace = list(leafsize = 1)))
   expect_error(make_leafpar(replace = list(sr = 1)))
   
-  expect_identical(make_leafpar(replace = list(abs_s = set_units(1, unitless)))$abs_s,
-                   set_units(1, unitless))
+  expect_identical(make_leafpar(replace = list(abs_s = set_units(1)))$abs_s,
+                   set_units(1))
   # leaf_par <- make_leafpar(replace = list(abs_l = set_units(1, unitless)))
   # leaf_par <- make_leafpar(replace = list(g_xc = set_units(1, mol / (m^2 * s * Pa))))
   # leaf_par <- make_leafpar(replace = list(g_ic = set_units(1, mol / (m^2 * s * Pa))))

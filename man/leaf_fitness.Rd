@@ -4,11 +4,11 @@
 \alias{leaf_fitness}
 \title{Leaf fitness}
 \usage{
-leaf_fitness(traits, constraints, leaf_par, enviro_par, constants,
+leaf_fitness(leaf_traits, constraints, leaf_par, enviro_par, constants,
   return_negative = FALSE, ...)
 }
 \arguments{
-\item{traits}{A vector of traits to optimize. Must one or more of stomatal conductance (\code{g_sw}), stomatal ratio (\code{sr}), and leaf size (\code{leafsize}). Partial matching allowed.}
+\item{leaf_traits}{A vector of leaf traits to optimize. Must one or more of stomatal conductance (\code{g_sw}), stomatal ratio (\code{sr}), and leaf size (\code{leafsize}). Partial matching allowed.}
 
 \item{constraints}{A list containing lambda (i.e. the cost of water), which must be a scalar. No other constraints are currently implemented.}
 
@@ -19,6 +19,8 @@ leaf_fitness(traits, constraints, leaf_par, enviro_par, constants,
 \item{constants}{A list of physical constants. This can be generated using the \code{make_constants} function.}
 
 \item{return_negative}{Logical. Should negative fitness be returned? This is useful for optimization, which usually search for minimum.}
+
+\item{...}{ignored}
 }
 \description{
 Leaf fitness

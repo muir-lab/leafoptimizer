@@ -3,23 +3,22 @@
 #' @inheritParams evolve_leaf
 #'
 #' @param return_negative Logical. Should negative fitness be returned? This is useful for optimization, which usually search for minimum.
-#'
-#' @importFrom magrittr %<>% %>%
+#' @param ... ignored
 #'
 #' @export
 #'
 
-leaf_fitness <- function(traits, constraints, leaf_par, enviro_par, constants, return_negative = FALSE, ...) {
+leaf_fitness <- function(leaf_traits, constraints, leaf_par, enviro_par, constants, return_negative = FALSE, ...) {
 
   ##### Checks -----
-  check_traits(traits)
+  check_traits(leaf_traits)
   check_constraints(constraints)
-  check_leafpar(leaf_par, traits)
+  check_leafpar(leaf_par, leaf_traits)
   check_enviropar(enviro_par)
   check_constants(constants)
 
-  ##### Add traits to leaf_par
-  leaf_par %<>% c(traits)
+  ##### Add leaf_traits to leaf_par
+  leaf_par %<>% c(leaf_traits)
 
   ##### Find leaf temperature -----
   T_leaf <- find_Tleaf(leaf_par, enviro_par, constants)
@@ -29,20 +28,21 @@ leaf_fitness <- function(traits, constraints, leaf_par, enviro_par, constants, r
 
   ##### Find photosynthetic rate -----
   ##### Calculate fitness and return -----
-
+ fitness <- NULL
+  
   if (return_negative) return(-fitness)
 
   fitness
 
 }
 
-check_traits <- function(traits) {
+check_traits <- function(leaf_traits) {
 
-  match.arg(names(traits), c("g_sw", "sr", "leafsize"),
+  match.arg(names(leaf_traits), c("g_sw", "sr", "leafsize"),
             several.ok = TRUE)
 
-  stopifnot(all(sapply(traits, is.numeric)))
-  stopifnot(all(sapply(traits, function(X) length(X) == 1)))
+  stopifnot(all(sapply(leaf_traits, is.numeric)))
+  stopifnot(all(sapply(leaf_traits, function(X) length(X) == 1)))
 
 }
 
@@ -56,14 +56,14 @@ check_constraints <- function(constraints) {
 
 }
 
-check_leafpar <- function(leaf_par, traits) {
+check_leafpar <- function(leaf_par, leaf_traits) {
 
   if (!inherits(leaf_par, "leaf_par")) stop("Use `make_leafpar` function to generate leaf_par")
-  mt <- .missing_traits(traits)
+  mt <- .missing_traits(leaf_traits)
   stopifnot(all(mt %in% names(leaf_par)))
   if (length(mt) > 0) {
-    stopifnot(all(sapply(traits, function(X) is.numeric(leaf_par[[X]]))))
-    stopifnot(all(sapply(traits, function(X) length(leaf_par[[X]]) == 1)))
+    stopifnot(all(sapply(leaf_traits, function(X) is.numeric(leaf_par[[X]]))))
+    stopifnot(all(sapply(leaf_traits, function(X) length(leaf_par[[X]]) == 1)))
   }
 
 }

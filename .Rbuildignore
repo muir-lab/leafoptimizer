@@ -1,4 +1,4 @@
+^LICENSE\.md$
 ^.*\.Rproj$
 ^\.Rproj\.user$
-^R/start of vignette\.R$
 ^R/issues\.R$

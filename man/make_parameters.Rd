@@ -7,7 +7,7 @@
 \alias{make_constants}
 \title{Make lists of parameters for \code{evolve_leaf}}
 \usage{
-make_leafpar(replace = NULL, traits = NULL)
+make_leafpar(replace = NULL, leaf_traits = NULL)
 
 make_enviropar(replace = NULL)
 
@@ -16,7 +16,7 @@ make_constants(replace = NULL)
 \arguments{
 \item{replace}{A named list of parameters to replace defaults. If \code{NULL}, defaults will be used.}
 
-\item{traits}{A vector of traits to optimize. Must one or more of stomatal conductance (\code{g_sw}), stomatal ratio (\code{sr}), and leaf size (\code{leafsize}). Partial matching allowed.}
+\item{leaf_traits}{A vector of leaf traits to optimize. Must one or more of stomatal conductance (\code{g_sw}), stomatal ratio (\code{sr}), and leaf size (\code{leafsize}). Partial matching allowed.}
 }
 \value{
 An object inheriting from class leaf_par.
@@ -43,6 +43,7 @@ make_constants
 \code{k_x} \tab partition of gx to spongy mesophyll \tab none \tab 1\cr
 \code{V_cmax} \tab maximum rate of carboxylation \tab mol CO2 m\eqn{^{-2}} s\eqn{^{-1}} \tab 50\cr
 \code{J_max} \tab potential electron transport \tab mol CO2 m\eqn{^{-2}} s\eqn{^{-1}} \tab 100\cr
+\code{R_d} \tab Mitochondrial (CHECK) Respiration \tab mol CO2 m\eqn{^{-2}} s\eqn{^{-1}} \tab 2\cr
 \code{K_c} \tab Michaelis constant for carboxylation \tab \eqn{\mu}mol mol\eqn{^{-1}} \tab 268.3\cr
 \code{K_o} \tab Michaelis constant for oxygenation \tab \eqn{\mu}mol mol\eqn{^{-1}} \tab 165084.2\cr
 \code{gamma_star} \tab Chloroplastic CO2 compensation point \tab \eqn{\mu}mol CO2 mol\eqn{^{-1} air} \tab 37.3\cr
@@ -67,11 +68,12 @@ make_constants
 \code{thetaJ} \tab curvature factor for light-response curve \tab none \tab 0.86\cr
 \code{phi} \tab effective maximum quantum yield of electrons from incident irradiance \tab e- / hv \tab 0.25\cr
 \code{s} \tab Stephan-Boltzmann constant \tab W m\eqn{^{-2}} K\eqn{^{-4}} \tab 5.67e-08\cr
+\code{R} \tab ideal gas constant \tab J / (mol K) \tab 8.3144598\cr
 \code{R_air} \tab specific gas constant for dry air \tab J / (kg K) \tab 287.058\cr
 \code{eT} \tab exponent for temperature dependence of diffusion \tab none? \tab 1.75\cr
 \code{Nu} \tab Nusselt number \tab none \tab *\cr
-\code{D_m0} \tab diffusion coefficient for momentum in air at 0 C \tab m\eqn{^2} s\eqn{^{-1}} \tab 13.3\cr
-\code{t_air} \tab coefficient of thermal expansion of air \tab none? \tab 3.66e-3\cr
+\code{D_m0} \tab diffusion coefficient for momentum in air at 0 C \tab m\eqn{^2} s\eqn{^{-1}} \tab 13.3e-06\cr
+\code{t_air} \tab coefficient of thermal expansion of air \tab 1 / K \tab 3.66e-3\cr
 \code{G} \tab gravitational acceleration \tab m s\eqn{^{-2}} \tab 9.8\cr
 \code{Sh} \tab Sherwood number \tab none \tab *\cr
 \code{D_h0} \tab diffusion coefficient for heat in air at 0 C \tab m\eqn{^2} s\eqn{^{-1}} \tab 1.9e-5\cr
