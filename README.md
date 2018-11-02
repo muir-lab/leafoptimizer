@@ -9,7 +9,7 @@ leafevolver
 From CRAN (not on CRAN yet)
 
 ```r
-install.packages("rusda")
+install.packages("leafevolver")
 ```
 
 or from rOpenSci
