@@ -96,7 +96,7 @@ make_leafpar <- function(replace = NULL, leaf_traits = NULL) {
   for (i in leaf_traits) obj[[i]] <- NULL
   
   ##### Assign class and return -----
-  class(obj) <- "leaf_par"
+  obj %<>% leaf_par()
 
   obj
 
@@ -125,19 +125,9 @@ make_enviropar <- function(replace = NULL) {
 
   obj %<>% replace_defaults(replace)
 
-  ##### Check values ------
-  stopifnot(obj$T_air >= set_units(0, "K"))
-  stopifnot(obj$RH >= set_units(0) & obj$RH <= set_units(1))
-  stopifnot(obj$R_sw >= set_units(0, "W / m^2"))
-  stopifnot(obj$R_lw >= set_units(0, "W / m^2"))
-  stopifnot(obj$wind >= set_units(0, "m / s"))
-  stopifnot(obj$C_air >= set_units(0) & obj$C_air <= set_units(1))
-  stopifnot(obj$P >= set_units(0, "kPa"))
-  stopifnot(obj$O >= set_units(0) & obj$O <= set_units(1))
-
   ##### Assign class and return -----
-  class(obj) <- "enviro_par"
-
+  obj %<>% enviro_par()
+  
   obj
 
 }
@@ -215,23 +205,9 @@ make_constants <- function(replace = NULL) {
 
   obj %<>% replace_defaults(replace)
 
-  ##### Check values ------
-  stopifnot(obj$thetaJ >= set_units(0) & obj$thetaJ <= set_units(1))
-  stopifnot(obj$phi >= set_units(0) & obj$phi <= set_units(1))
-  stopifnot(obj$s >= set_units(0, "W / (m ^ 2 * K ^ 4)"))
-  stopifnot(obj$R >= set_units(0, "J / (mol * K)"))
-  stopifnot(obj$R_air >= set_units(0, "J / (kg * K)"))
-  stopifnot(obj$eT >= set_units(0))
-  stopifnot(obj$D_h0 >= set_units(0, "m ^ 2 / s"))
-  stopifnot(obj$D_m0 >= set_units(0, "m ^ 2 / s"))
-  stopifnot(obj$D_w0 >= set_units(0, "m ^ 2 / s"))
-  stopifnot(obj$t_air >= set_units(0, "1 / K"))
-  stopifnot(obj$G >= set_units(0, "m / s ^ 2"))
-  stopifnot(obj$c_p >= set_units(0, "J / (g * K)"))
-
   ##### Assign class and return -----
-  class(obj) <- "constants"
-
+  obj %<>% constants()
+  
   obj
 
 }
