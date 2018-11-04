@@ -35,8 +35,7 @@ leaf_par <- function(.x) {
   stopifnot(.x$gamma_star >= set_units(0, "Pa"))
   stopifnot(.x$g_sw >= set_units(0, "umol / (m^2 * s * Pa)"))
   stopifnot(.x$leafsize >= set_units(0, "m"))
-  stopifnot(.x$sr >= set_units(0))
-  
+
   structure(.x, class = c(stringr::str_c(which, "_par"), "list"))
   
 }

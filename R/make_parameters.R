@@ -86,7 +86,7 @@ make_leafpar <- function(replace = NULL, leaf_traits = NULL) {
     gamma_star = set_units(3.73, "Pa"), # From Sharkey et al. 2007. Newer source? Check bayCi
     g_sw = set_units(5, "umol / (m^2 * s * Pa)"), # CHECK DEFAULT in Pa^-1
     leafsize = set_units(0.1, "m"),
-    sr = set_units(1)
+    sr = set_units(0)
   )
   
   ##### Replace defaults -----

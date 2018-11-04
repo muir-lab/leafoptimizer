@@ -249,7 +249,7 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants,
 
 .get_nu <- function(T_leaf, surface, pars) {
 
-  surface <- match.arg(c("lower", "upper"))
+  surface %<>% match.arg(c("lower", "upper"))
   
   Gr <- .get_gr(T_leaf, pars)
   Re <- .get_re(T_leaf, pars)
@@ -306,10 +306,6 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants,
 
 .get_L <- function(T_leaf, pars) {
 
-  warning("Incorporate stomatal ratio into .get_L")
-  
-  g_bw <- sum(.get_gbw(T_leaf, "lower", pars), .get_gbw(T_leaf, "upper", pars))
-  
   # Equation from Foster and Smith 1986 seems to be off:
   # h_vap <- 4.504e4 - 41.94 * T_leaf
   # Instead, using regression based on data from Nobel (2009, 4th Ed, Appendix 1)
@@ -320,12 +316,29 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants,
     set_units(43.12514, "J / mol / K") * set_units(T_leaf, "K")
   h_vap %<>% set_units("J / mol")
   
+  # Lower surface ----
+  g_bw_lower <- .get_gbw(T_leaf, "lower", pars)
+  
   # Convert stomatal and cuticular conductance from molar to 'engineering' units
   # See email from Tom Buckley (July 4, 2017)
-  g_sw1 <- set_units(pars$g_sw * pars$R * ((T_leaf + pars$T_air) / 2), "m / s")
-  g_uw1 <- set_units(pars$g_uw * pars$R * ((T_leaf + pars$T_air) / 2), "m / s")
-  g_tw <- 1 / (1 / g_sw1 + 1 / g_uw1) + 1 / g_bw
+  g_sw_lower <- set_units(pars$g_sw * (set_units(1) - plogis(pars$sr)) * pars$R * 
+                            ((T_leaf + pars$T_air) / 2), "m / s")
+  g_uw_lower <- set_units(pars$g_uw * 0.5 * pars$R * ((T_leaf + pars$T_air) / 2), "m / s")
+  g_tw_lower <- 1 / (1 / (g_sw_lower + g_uw_lower) + 1 / g_bw_lower)
 
+  # Upper surface ----
+  g_bw_upper <- .get_gbw(T_leaf, "upper", pars)
+  
+  # Convert stomatal and cuticular conductance from molar to 'engineering' units
+  # See email from Tom Buckley (July 4, 2017)
+  g_sw_upper <- set_units(pars$g_sw * plogis(pars$sr) * pars$R * 
+                            ((T_leaf + pars$T_air) / 2), "m / s")
+  g_uw_upper <- set_units(pars$g_uw * 0.5 * pars$R * ((T_leaf + pars$T_air) / 2), "m / s")
+  g_tw_upper <- 1 / (1 / (g_sw_upper + g_uw_upper) + 1 / g_bw_upper)
+  
+  # Lower and upper surface are in parallel
+  g_tw <- g_tw_lower + g_tw_upper
+    
   # Water vapour differential converted from kPa to mol m ^ -3 using ideal gas law
   dWV <- .get_ps(T_leaf, pars$P) / (pars$R * T_leaf) - 
     pars$RH * .get_ps(pars$T_air, pars$P) / (pars$R * pars$T_air)
