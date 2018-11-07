@@ -13,6 +13,18 @@
 
 \item{P}{Atmospheric pressure in kPa}
 }
+\value{
+Value in K of class \code{units}
+}
 \description{
 Calculate virtual temperature
+}
+\details{
+\deqn{T_\text{v} = T / [1 - 0.388 (p_\text{air} / P)]}{T_v = T / [1 - 0.388 (p_air / P)]}
+
+\tabular{lllll}{
+\emph{Symbol} \tab \emph{R} \tab \emph{Description} \tab \emph{Units} \tab \emph{Default}\cr
+\eqn{p_\text{air}}{p_air} \tab \code{p_air} \tab saturation water vapour pressure of air \tab kPa \tab \link[=.get_ps]{calculated}\cr
+\eqn{P} \tab \code{P} \tab atmospheric pressure \tab kPa \tab 101.3246
+}
 }

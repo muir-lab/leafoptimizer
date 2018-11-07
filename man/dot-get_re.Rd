@@ -11,6 +11,19 @@
 
 \item{pars}{Concatenated parameters (\code{leaf_par}, \code{enviro_par}, and \code{constants})}
 }
+\value{
+A unitless number of class \code{units}
+}
 \description{
 Re: Reynolds number
+}
+\details{
+\deqn{Re = u d / D_\text{m}}{Re = u d / D_m}
+
+\tabular{lllll}{
+\emph{Symbol} \tab \emph{R} \tab \emph{Description} \tab \emph{Units} \tab \emph{Default}\cr
+\eqn{d} \tab \code{leafsize} \tab Leaf characteristic dimension in meters \tab m \tab 0.1\cr
+\eqn{D_\text{m}}{D_m} \tab \code{D_m} \tab diffusion coefficient of momentum in air \tab m\eqn{^2} / s \tab \link[=.get_Dx]{calculated}\cr
+\eqn{u} \tab \code{wind} \tab windspeed \tab m / s \tab 2
+}
 }

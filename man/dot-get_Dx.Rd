@@ -7,7 +7,7 @@
 .get_Dx(D_0, Temp, eT, P)
 }
 \arguments{
-\item{D_0}{Diffusion coefficient at 273.15 K and 101.3246 kPa}
+\item{D_0}{Diffusion coefficient at 273.15 K (0 degree C) and 101.3246 kPa}
 
 \item{Temp}{Temperature in Kelvin}
 
@@ -15,6 +15,12 @@
 
 \item{P}{Atmospheric pressure in kPa}
 }
+\value{
+Value in m\eqn{^2}/s of class \code{units}
+}
 \description{
 D_x: Calculate diffusion coefficient for a given temperature and pressure
+}
+\details{
+\deqn{D = D_\text{0} (T / 273.15) ^ {eT} (101.3246 / P)}{D = D_0 [(T / 273.15) ^ eT] (101.3246 / P)}
 }

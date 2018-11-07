@@ -24,8 +24,8 @@ enviro_par <- function(.x) {
   # Check values ------
   stopifnot(.x$T_air >= set_units(0, "K"))
   stopifnot(.x$RH >= set_units(0) & .x$RH <= set_units(1))
-  stopifnot(.x$R_sw >= set_units(0, "W / m^2"))
-  stopifnot(.x$R_lw >= set_units(0, "W / m^2"))
+  stopifnot(.x$S_sw >= set_units(0, "W / m^2"))
+  stopifnot(.x$S_lw >= set_units(0, "W / m^2"))
   stopifnot(.x$wind >= set_units(0, "m / s"))
   stopifnot(.x$C_air >= set_units(0) & .x$C_air <= set_units(1))
   stopifnot(.x$P >= set_units(0, "kPa"))
