@@ -95,14 +95,14 @@ gbw_lower <- set_units(0.1, "m/s")
 gbw_upper <- set_units(0.1, "m/s")
 
 # Lower surface ----
-## Note that pars$sr is logit-transformed! Use plogis() to convert to proportion.
-gsw_lower <- set_units(pars$g_sw * (set_units(1) - plogis(pars$sr)) * pars$R * 
+## Note that pars$sr is logit-transformed! Use stats::plogis() to convert to proportion.
+gsw_lower <- set_units(pars$g_sw * (set_units(1) - stats::plogis(pars$sr)) * pars$R * 
                          ((T_leaf + pars$T_air) / 2), "m / s")
 guw_lower <- set_units(pars$g_uw * 0.5 * pars$R * ((T_leaf + pars$T_air) / 2), "m / s")
 gtw_lower <- 1 / (1 / (gsw_lower + guw_lower) + 1 / gbw_lower)
 
 # Upper surface ----
-gsw_upper <- set_units(pars$g_sw * plogis(pars$sr) * pars$R * 
+gsw_upper <- set_units(pars$g_sw * stats::plogis(pars$sr) * pars$R * 
                          ((T_leaf + pars$T_air) / 2), "m / s")
 guw_upper <- set_units(pars$g_uw * 0.5 * pars$R * ((T_leaf + pars$T_air) / 2), "m / s")
 gtw_upper <- 1 / (1 / (gsw_upper + guw_upper) + 1 / gbw_upper)
@@ -118,8 +118,8 @@ constants <- make_constants()
 pars <- c(leaf_par, enviro_par, constants)
 T_leaf <- set_units(300, "K")
 T_air <- set_units(298.15, "K")
-p_leaf <- .get_ps(T_leaf, pars$P)
-p_air <- .get_ps(T_air, pars$P)
+p_leaf <- set_units(35.31683, "kPa")
+p_air <- set_units(31.65367, "kPa")
 
 d_wv <- p_leaf / (pars$R * T_leaf) - pars$RH * p_air / (pars$R * T_air)
 

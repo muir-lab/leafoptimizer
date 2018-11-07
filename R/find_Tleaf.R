@@ -59,7 +59,7 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants,
   R_abs <- .get_Rabs(pars) %>% drop_units()
 
   ##### S_r: longwave re-radiation (W m^-2) -----
-  R_r <- .get_Sr(pars) %>% drop_units()
+  S_r <- .get_Sr(pars) %>% drop_units()
 
   ##### H: sensible heat flux density (W m^-2) -----
   H <- .get_H(T_leaf, pars) %>% drop_units()
@@ -68,8 +68,8 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants,
   L <- .get_L(T_leaf, pars) %>% drop_units()
 
   ##### Return -----
-  if (abs_val) return(abs(R_abs - (R_r + H + L)))
-  R_abs - (R_r + H + L)
+  if (abs_val) return(abs(R_abs - (S_r + H + L)))
+  R_abs - (S_r + H + L)
 
 }
 
@@ -403,25 +403,20 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants,
   if (Ar < set_units(0.1)) {
     type <- "forced"
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
-    Re %<>% as.numeric()
     Nu <- cons$a * Re ^ cons$b
-    Nu %<>% set_units()
     return(Nu)
   }
 
   if (Ar >= set_units(0.1) & Ar <= set_units(10)) {
     type <- "forced"
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
-    Re %<>% as.numeric()
     Nu_forced <- cons$a * Re ^ cons$b
 
     type <- "free"
-    Re %<>% set_units()
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
-    Gr %<>% as.numeric()
     Nu_free <- cons$a * Gr ^ cons$b
 
-    Nu <- (Nu_forced ^ 3.5 + Nu_free ^ 3.5) ^ (1 / 3.5)
+    Nu <- (drop_units(Nu_forced) ^ 3.5 + drop_units(Nu_free) ^ 3.5) ^ (1 / 3.5)
     Nu %<>% set_units()
     return(Nu)
   }
@@ -429,9 +424,7 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants,
   if (Ar > set_units(10)) {
     type <- "free"
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
-    Gr %<>% as.numeric()
     Nu <- cons$a * Gr ^ cons$b
-    Nu %<>% set_units()
     return(Nu)
   }
 
@@ -522,14 +515,14 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants,
 #' gbw_upper <- set_units(0.1, "m/s")
 #' 
 #' # Lower surface ----
-#' ## Note that pars$sr is logit-transformed! Use plogis() to convert to proportion.
-#' gsw_lower <- set_units(pars$g_sw * (set_units(1) - plogis(pars$sr)) * pars$R * 
+#' ## Note that pars$sr is logit-transformed! Use stats::plogis() to convert to proportion.
+#' gsw_lower <- set_units(pars$g_sw * (set_units(1) - stats::plogis(pars$sr)) * pars$R * 
 #'                          ((T_leaf + pars$T_air) / 2), "m / s")
 #' guw_lower <- set_units(pars$g_uw * 0.5 * pars$R * ((T_leaf + pars$T_air) / 2), "m / s")
 #' gtw_lower <- 1 / (1 / (gsw_lower + guw_lower) + 1 / gbw_lower)
 #' 
 #' # Upper surface ----
-#' gsw_upper <- set_units(pars$g_sw * plogis(pars$sr) * pars$R * 
+#' gsw_upper <- set_units(pars$g_sw * stats::plogis(pars$sr) * pars$R * 
 #'                          ((T_leaf + pars$T_air) / 2), "m / s")
 #' guw_upper <- set_units(pars$g_uw * 0.5 * pars$R * ((T_leaf + pars$T_air) / 2), "m / s")
 #' gtw_upper <- 1 / (1 / (gsw_upper + guw_upper) + 1 / gbw_upper)
@@ -545,8 +538,8 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants,
 #' pars <- c(leaf_par, enviro_par, constants)
 #' T_leaf <- set_units(300, "K")
 #' T_air <- set_units(298.15, "K")
-#' p_leaf <- .get_ps(T_leaf, pars$P)
-#' p_air <- .get_ps(T_air, pars$P)
+#' p_leaf <- set_units(35.31683, "kPa")
+#' p_air <- set_units(31.65367, "kPa")
 #' 
 #' d_wv <- p_leaf / (pars$R * T_leaf) - pars$RH * p_air / (pars$R * T_air)
 #' 
@@ -574,7 +567,7 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants,
   
   # Convert stomatal and cuticular conductance from molar to 'engineering' units
   # See email from Tom Buckley (July 4, 2017)
-  gsw_lower <- set_units(pars$g_sw * (set_units(1) - plogis(pars$sr)) * pars$R * 
+  gsw_lower <- set_units(pars$g_sw * (set_units(1) - stats::plogis(pars$sr)) * pars$R * 
                            ((T_leaf + pars$T_air) / 2), "m / s")
   guw_lower <- set_units(pars$g_uw * 0.5 * pars$R * ((T_leaf + pars$T_air) / 2), "m / s")
   gtw_lower <- 1 / (1 / (gsw_lower + guw_lower) + 1 / gbw_lower)
@@ -584,7 +577,7 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants,
   
   # Convert stomatal and cuticular conductance from molar to 'engineering' units
   # See email from Tom Buckley (July 4, 2017)
-  gsw_upper <- set_units(pars$g_sw * plogis(pars$sr) * pars$R * 
+  gsw_upper <- set_units(pars$g_sw * stats::plogis(pars$sr) * pars$R * 
                            ((T_leaf + pars$T_air) / 2), "m / s")
   guw_upper <- set_units(pars$g_uw * 0.5 * pars$R * ((T_leaf + pars$T_air) / 2), "m / s")
   gtw_upper <- 1 / (1 / (gsw_upper + guw_upper) + 1 / gbw_upper)
@@ -684,28 +677,21 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants,
   if (Ar < set_units(0.1)) {
     type <- "forced"
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
-    Re %<>% drop_units()
     Nu <- cons$a * Re ^ cons$b
-    Nu %<>% set_units()
-    Sh <- Nu * drop_units(D_h / D_w) ^ pars$sh_constant(type)
+    Sh <- Nu * drop_units(D_h / D_w) ^ drop_units(pars$sh_constant(type))
     return(Sh)
   }
 
   if (Ar >= set_units(0.1) & Ar <= set_units(10)) {
     type <- "forced"
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
-    Re %<>% drop_units()
     Nu_forced <- cons$a * Re ^ cons$b
-    Nu_forced %<>% set_units()
-    Sh_forced <- Nu_forced * drop_units(D_h / D_w) ^ pars$sh_constant(type)
+    Sh_forced <- Nu_forced * drop_units(D_h / D_w) ^ drop_units(pars$sh_constant(type))
 
     type <- "free"
-    Re %<>% set_units()
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
-    Gr %<>% drop_units()
     Nu_free <- cons$a * Gr ^ cons$b
-    Nu_free %<>% set_units()
-    Sh_free <- Nu_free * drop_units(D_h / D_w) ^ pars$sh_constant(type)
+    Sh_free <- Nu_free * drop_units(D_h / D_w) ^ drop_units(pars$sh_constant(type))
 
     warning("check on exponents in mixed convection Sherwood equation in .get_sh")
     Sh <- (drop_units(Sh_forced) ^ 3.5 + drop_units(Sh_free) ^ 3.5) ^ (1 / 3.5)
@@ -715,12 +701,9 @@ engery_balance <- function(T_leaf, leaf_par, enviro_par, constants,
 
   if (Ar > set_units(10)) {
     type <- "free"
-    Re %<>% drop_units()
     cons <- pars$nu_constant(Re, type, pars$T_air, T_leaf, surface)
-    Gr %<>% drop_units()
     Nu <- cons$a * Gr ^ cons$b
-    Nu %<>% set_units()
-    Sh <- Nu * drop_units(D_h / D_w) ^ pars$sh_constant(type)
+    Sh <- Nu * drop_units(D_h / D_w) ^ drop_units(pars$sh_constant(type))
     return(Sh)
   }
 
