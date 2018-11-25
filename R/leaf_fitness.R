@@ -10,18 +10,18 @@
 
 leaf_fitness <- function(leaf_traits, constraints, leaf_par, enviro_par, constants, return_negative = FALSE, ...) {
 
-  ##### Checks -----
+  # Checks -----
   check_traits(leaf_traits)
   check_constraints(constraints)
   check_leafpar(leaf_par, leaf_traits)
   check_enviropar(enviro_par)
   check_constants(constants)
 
-  ##### Add leaf_traits to leaf_par
+  # Add leaf_traits to leaf_par
   leaf_par %<>% c(leaf_traits)
 
-  ##### Find leaf temperature -----
-  T_leaf <- find_Tleaf(leaf_par, enviro_par, constants)
+  # Find leaf temperature -----
+  T_leaf <- tealeaves::tleaf(leaf_par, enviro_par, constants, quiet = TRUE)
 
   ##### Find evaporation -----
   # Should this be calculated in find_Tleaf??
@@ -59,7 +59,8 @@ check_constraints <- function(constraints) {
 check_leafpar <- function(leaf_par, leaf_traits) {
 
   if (!inherits(leaf_par, "leaf_par")) stop("Use `make_leafpar` function to generate leaf_par")
-  mt <- .missing_traits(leaf_traits)
+  #mt <- .missing_traits(leaf_traits)
+  mt <- NULL
   stopifnot(all(mt %in% names(leaf_par)))
   if (length(mt) > 0) {
     stopifnot(all(sapply(leaf_traits, function(X) is.numeric(leaf_par[[X]]))))

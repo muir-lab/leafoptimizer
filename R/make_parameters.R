@@ -1,9 +1,13 @@
-#' Make lists of parameters for \code{evolve_leaf}
+#' Make lists of parameters for \code{optimize_leaf}
 #'
-#' @inheritParams evolve_leaf
+#' @param constants A list of physical constants. This can be generated using the \code{make_constants} function. This is needed to ensure that CO2 and H2O conductances are internally consistent with each other.
 #' @param replace A named list of parameters to replace defaults. If \code{NULL}, defaults will be used.
-#'
+#' @param default_to A character string, either 'photosynthesis' or 'tealeaves', to indicate which package's default parameter to use when they conflict. Default to 'photosynthesis'.
+#' @param quiet Logical. Should messages about parameters be displayed?
+#' 
 #' @name make_parameters
+#' 
+#' @encoding UTF-8
 
 NULL
 
@@ -14,6 +18,7 @@ NULL
 #' 
 #' \code{make_leafpar}: An object inheriting from class \code{\link{leaf_par}}\cr
 #' \code{make_enviropar}: An object inheriting from class \code{\link{enviro_par}}\cr
+#' \code{make_bakepar}: An object inheriting from class \code{\link{bake_par}}\cr
 #' \code{make_constants}: An object inheriting from class \code{\link{constants}}
 #'
 #' @details
@@ -22,121 +27,206 @@ NULL
 #'
 #' \tabular{lllll}{
 #' \emph{Symbol} \tab \emph{R} \tab \emph{Description} \tab \emph{Units} \tab \emph{Default}\cr
-#' \eqn{d} \tab \code{leafsize} \tab Leaf characteristic dimension in meters \tab m \tab 0.1\cr
-#' \eqn{\alpha_\text{s}}{\alpha_s} \tab \code{abs_s} \tab absortivity of shortwave radiation (0.3 - 4 \eqn{\mu}m) \tab none \tab 0.80\cr
-#' \eqn{\alpha_\text{l}}{\alpha_l} \tab \code{abs_l} \tab absortivity of longwave radiation (4 - 80 \eqn{\mu}m) \tab none \tab 0.97\cr
-#' \eqn{g_\text{sw}}{g_sw} \tab \code{g_sw} \tab stomatal conductance to H2O \tab (\eqn{\mu}mol H2O) / (m\eqn{^2} s Pa) \tab 5\cr
-#' \eqn{g_\text{uw}}{g_uw} \tab \code{g_uw} \tab cuticular conductance to H2O \tab (\eqn{\mu}mol H2O) / (m\eqn{^2} s Pa) \tab 0.1\cr
-#' \eqn{sr} \tab \code{sr} \tab stomatal ratio \tab none \tab 0 = logit(0.5)\cr
-#' \eqn{g_\text{xc}}{g_xc} \tab \code{g_xc} \tab intercellular conductance to CO2 \tab (mol CO2) / (m\eqn{^2} s) \tab 1\cr
-#' \eqn{g_\text{ic}}{g_ic} \tab \code{g_ic} \tab intracellular conductance to CO2 \tab (mol CO2) / (m\eqn{^2} s) \tab 1\cr
-#' \eqn{k_x} \tab \code{k_x} \tab partition of \eqn{g_\text{gc}}{g_xc} to spongy mesophyll \tab none \tab 1\cr
-#' \eqn{V_\text{c,max}}{V_c,max} \tab \code{V_cmax} \tab maximum rate of carboxylation \tab (mol CO2) / (m\eqn{^2} s) \tab 50\cr
-#' \eqn{J_\text{max}}{J_max} \tab \code{J_max} \tab potential electron transport \tab (mol CO2) / (m\eqn{^2} s) \tab 100\cr
-#' \eqn{R_\text{d}}{R_d} \tab \code{R_d} \tab Mitochondrial (CHECK) respiration \tab (mol CO2) / (m\eqn{^2} s) \tab 2\cr
-#' \eqn{K_\text{C}}{K_C} \tab \code{K_c} \tab Michaelis constant for carboxylation \tab \eqn{\mu}mol / mol \tab 268.3\cr
-#' \eqn{K_\text{O}}{K_O} \tab \code{K_o} \tab Michaelis constant for oxygenation \tab \eqn{\mu}mol / mol \tab 165084.2\cr
-#' \eqn{\Gamma*} \tab \code{gamma_star} \tab Chloroplastic CO2 compensation point \tab \eqn{\mu}mol CO2 / mol air \tab 37.3\cr
+#' \eqn{d} \tab \code{leafsize} \tab leaf characteristic dimension \tab m \tab 0.1 \cr
+#' \eqn{\Gamma*} \tab \code{gamma_star} \tab chloroplastic CO2 compensation point (T_leaf) \tab Pa \tab \link[=bake]{calculated} \cr
+#' \eqn{\Gamma*_{25}}{\Gamma_25*} \tab \code{gamma_star25} \tab chloroplastic CO2 compensation point (25 °C) \tab Pa \tab 3.743 \cr
+#' \eqn{g_\mathrm{mc}}{g_mc} \tab \code{g_mc} \tab mesophyll conductance to CO2 (T_leaf) \tab \eqn{\mu}mol CO2 / (m\eqn{^2} s Pa) \tab \link[=bake]{calculated} \cr
+#' \eqn{g_\mathrm{mc}}{g_mc} \tab \code{g_mc25} \tab mesophyll conductance to CO2 (25 °C) \tab \eqn{\mu}mol CO2 / (m\eqn{^2} s Pa) \tab 4 \cr
+#' \eqn{g_\mathrm{sc}}{g_sc} \tab \code{g_sc} \tab stomatal conductance to CO2 \tab \eqn{\mu}mol CO2 / (m\eqn{^2} s Pa) \tab 4 \cr
+#' \eqn{g_\mathrm{uc}}{g_uc} \tab \code{g_uc} \tab cuticular conductance to CO2 \tab \eqn{\mu}mol CO2 / (m\eqn{^2} s Pa) \tab 0.1 \cr
+#' \eqn{J_\mathrm{max25}}{J_max25} \tab \code{J_max25} \tab potential electron transport (25 °C) \tab \eqn{\mu}mol CO2 / (m\eqn{^2} s) \tab 200 \cr
+#' \eqn{J_\mathrm{max}}{J_max} \tab \code{J_max} \tab potential electron transport (T_leaf) \tab \eqn{\mu}mol CO2 / (m\eqn{^2} s) \tab \link[=bake]{calculated} \cr
+#' \eqn{k_\mathrm{mc}}{k_mc} \tab \code{k_mc} \tab partition of \eqn{g_\mathrm{mc}}{g_mc} to lower mesophyll \tab none \tab 1 \cr
+#' \eqn{k_\mathrm{sc}}{k_sc} \tab \code{k_sc} \tab partition of \eqn{g_\mathrm{sc}}{g_sc} to lower surface \tab none \tab 1 \cr
+#' \eqn{k_\mathrm{uc}}{k_uc} \tab \code{k_uc} \tab partition of \eqn{g_\mathrm{uc}}{g_uc} to lower surface \tab none \tab 1 \cr
+#' \eqn{K_\mathrm{C25}}{K_C25} \tab \code{K_C25} \tab Michaelis constant for carboxylation (25 °C) \tab \eqn{\mu}mol / mol \tab 268.3 \cr
+#' \eqn{K_\mathrm{C}}{K_C} \tab \code{K_C} \tab Michaelis constant for carboxylation (T_leaf) \tab \eqn{\mu}mol / mol \tab \link[=bake]{calculated} \cr
+#' \eqn{K_\mathrm{O25}}{K_O25} \tab \code{K_O25} \tab Michaelis constant for oxygenation (25 °C) \tab \eqn{\mu}mol / mol \tab 165084.2\cr
+#' \eqn{K_\mathrm{O}}{K_O} \tab \code{K_O} \tab Michaelis constant for oxygenation (T_leaf) \tab \eqn{\mu}mol / mol \tab \link[=bake]{calculated} \cr
+#' \eqn{\phi} \tab \code{phi} \tab initial slope of the response of J to PPFD \tab none \tab 0.331 \cr
+#' \eqn{R_\mathrm{d25}}{R_d25} \tab \code{R_d25} \tab nonphotorespiratory CO2 release (25 °C) \tab \eqn{\mu}mol CO2 / (m\eqn{^2} s) \tab 2 \cr
+#' \eqn{R_\mathrm{d}}{R_d} \tab \code{R_d} \tab nonphotorespiratory CO2 release (T_leaf) \tab \eqn{\mu}mol CO2 / (m\eqn{^2} s) \tab \link[=bake]{calculated} \cr
+#' \eqn{\theta_J} \tab \code{theta_J} \tab curvature factor for light-response curve \tab none \tab 0.825 \cr
+#' \eqn{T_\mathrm{leaf}}{T_leaf} \tab \code{T_leaf} \tab leaf temperature \tab K \tab 298.15 \cr
+#' \eqn{V_\mathrm{c,max25}}{V_c,max25} \tab \code{V_cmax25} \tab maximum rate of carboxylation (25 °C) \tab \eqn{\mu}mol CO2 / (m\eqn{^2} s) \tab 150 \cr
+#' \eqn{V_\mathrm{c,max}}{V_c,max} \tab \code{V_cmax} \tab maximum rate of carboxylation (T_leaf) \tab \eqn{\mu}mol CO2 / (m\eqn{^2} s) \tab \link[=bake]{calculated} \cr
+#' \eqn{V_\mathrm{tpu25}}{V_tpu25} \tab \code{V_tpu25} \tab rate of triose phosphate utilisation (25 °C) \tab \eqn{\mu}mol CO2 / (m\eqn{^2} s) \tab 200 \cr
+#' \eqn{V_\mathrm{tpu}}{V_tpu} \tab \code{V_tpu} \tab rate of triose phosphate utilisation (T_leaf) \tab \eqn{\mu}mol CO2 / (m\eqn{^2} s) \tab \link[=bake]{calculated}
 #' }
 #'
 #' \bold{Environment parameters:}
 #'
 #' \tabular{lllll}{
 #' \emph{Symbol} \tab \emph{R} \tab \emph{Description} \tab \emph{Units} \tab \emph{Default}\cr
-#' \eqn{T_\text{air}}{T_air} \tab \code{T_air} \tab air temperature \tab K \tab 298.15\cr
-#' \eqn{\text{RH}}{RH} \tab \code{RH} \tab relative humidity \tab \% \tab 0.50\cr
-#' \eqn{S_\text{sw}}{S_sw} \tab \code{S_sw} \tab incident short-wave (solar) radiation flux density \tab W / m\eqn{^2} \tab 1000\cr
-#' \eqn{S_\text{lw}}{S_lw} \tab \code{S_lw} \tab incident long-wave radiation flux density \tab W / m\eqn{^2} \tab 825\cr
-#' \eqn{u} \tab \code{wind} \tab windspeed \tab m / s \tab 2\cr
-#' \eqn{C_\text{air}}{C_air} \tab \code{C_air} \tab atmospheric CO2 concentration \tab \eqn{\mu}mol CO2 / mol air \tab 400\cr
-#' \eqn{P} \tab \code{P} \tab atmospheric pressure \tab kPa \tab 101.3246\cr
-#' \eqn{O} \tab \code{O} \tab atmospheric O2 concentration \tab \eqn{\mu}mol O2 / mol air \tab 210000\cr
+#' \eqn{C_\mathrm{air}}{C_air} \tab \code{C_air} \tab atmospheric CO2 concentration \tab Pa \tab 41 \cr
+#' \eqn{O} \tab \code{O} \tab atmospheric O2 concentration \tab kPa \tab 21.27565 \cr
+#' \eqn{P} \tab \code{P} \tab atmospheric pressure \tab kPa \tab 101.3246 \cr
+#' PPFD \tab \code{PPFD} \tab photosynthetic photon flux density \tab \eqn{\mu}mol quanta / (m^2 s) \tab 1500 \cr
+#' \eqn{\mathrm{RH}}{RH} \tab \code{RH} \tab relative humidity \tab none \tab 0.50 \cr
+#' \eqn{T_\mathrm{air}}{T_air} \tab \code{T_air} \tab air temperature \tab K \tab 298.15 \cr
+#' \eqn{u} \tab \code{wind} \tab windspeed \tab m / s \tab 2
 #' }
 #'
+#' \bold{Baking (i.e. temperature response) parameters:}
+#'
+#' \tabular{lllll}{
+#' \emph{Symbol} \tab \emph{R} \tab \emph{Description} \tab \emph{Units} \tab \emph{Default}\cr
+#' \eqn{D_\mathrm{s,gmc}}{Ds_gmc} \tab \code{Ds_gmc} \tab empirical temperature response parameter \tab J / (mol K) \tab 487.29 \cr
+#' \eqn{D_\mathrm{s,Jmax}}{Ds_Jmax} \tab \code{Ds_Jmax} \tab empirical temperature response parameter \tab J / (mol K) \tab 388.04 \cr
+#' \eqn{E_\mathrm{a,\Gamma *}}{Ea_gammastar} \tab \code{Ea_gammastar} \tab empirical temperature response parameter \tab J / mol \tab 24459.97 \cr
+#' \eqn{E_\mathrm{a,gmc}}{Ea_gmc} \tab \code{Ea_gmc} \tab empirical temperature response parameter \tab J / mol \tab 68901.56 \cr
+#' \eqn{E_\mathrm{a,Jmax}}{Ea_Jmax} \tab \code{Ea_Jmax} \tab empirical temperature response parameter \tab J / mol \tab 56095.18 \cr
+#' \eqn{E_\mathrm{a,KC}}{Ea_KC} \tab \code{Ea_KC} \tab empirical temperature response parameter \tab J / mol \tab 80989.78 \cr
+#' \eqn{E_\mathrm{a,KO}}{Ea_KO} \tab \code{Ea_KO} \tab empirical temperature response parameter \tab J / mol \tab 23719.97 \cr
+#' \eqn{E_\mathrm{a,Rd}}{Ea_Rd} \tab \code{Ea_Rd} \tab empirical temperature response parameter \tab J / mol \tab 40446.75 \cr
+#' \eqn{E_\mathrm{a,Vcmax}}{Ea_Vcmax} \tab \code{Ea_Vcmax} \tab empirical temperature response parameter \tab J / mol \tab 52245.78 \cr
+#' \eqn{E_\mathrm{d,gmc}}{Ed_gmc} \tab \code{Ed_gmc} \tab empirical temperature response parameter \tab J / mol \tab 148788.56 \cr
+#' \eqn{E_\mathrm{d,Jmax}}{Ed_Jmax} \tab \code{Ed_Jmax} \tab empirical temperature response parameter \tab J / mol \tab 121244.79
+#' }
+#' 
 #' \bold{Constants:}
 #' \tabular{lllll}{
 #' \emph{Symbol} \tab \emph{R} \tab \emph{Description} \tab \emph{Units} \tab \emph{Default}\cr
-#' \eqn{\theta_J} \tab \code{thetaJ} \tab curvature factor for light-response curve \tab none \tab 0.86\cr
-#' \eqn{\phi} \tab \code{phi} \tab effective maximum quantum yield of electrons from incident irradiance \tab e- / hv \tab 0.25\cr
-#' \eqn{\sigma} \tab \code{s} \tab Stephan-Boltzmann constant \tab W / (m\eqn{^2} K\eqn{^4}) \tab 5.67e-08\cr
-#' \eqn{R} \tab \code{R} \tab ideal gas constant \tab J / (mol K) \tab 8.3144598\cr
-#' \eqn{R_\text{air}}{R_air} \tab \code{R_air} \tab specific gas constant for dry air \tab J / (kg K) \tab 287.058\cr
-#' \eqn{eT} \tab \code{eT} \tab exponent for temperature dependence of diffusion \tab none \tab 1.75\cr
-#' \eqn{Nu} \tab \code{Nu} \tab Nusselt number \tab none \tab *\cr
-#' \eqn{D_{m,0}}{D_m0} \tab \code{D_m0} \tab diffusion coefficient for momentum in air at 0 C \tab m\eqn{^2} / s \tab 13.3e-06\cr
-#' \eqn{t_\text{air}}{t_air} \tab \code{t_air} \tab coefficient of thermal expansion of air \tab 1 / K \tab 3.66e-3\cr
-#' \eqn{G} \tab \code{G} \tab gravitational acceleration \tab m / s\eqn{^2} \tab 9.8\cr
-#' \eqn{Sh} \tab \code{Sh} \tab Sherwood number \tab none \tab *\cr
-#' \eqn{D_{h,0}}{D_h0} \tab \code{D_h0} \tab diffusion coefficient for heat in air at 0 C \tab m\eqn{^2} / s \tab 1.9e-5\cr
-#' \eqn{D_{w,0}}{D_w0} \tab \code{D_w0} \tab diffusion coefficient for water vapour in air at 0 C \tab m\eqn{^2} / s \tab 21.2\cr
-#' \eqn{c_p} \tab \code{c_p} \tab heat capacity of air \tab J / (g K) \tab 1.01\cr
+#' \eqn{D_{c,0}}{D_c0} \tab \code{D_c0} \tab diffusion coefficient for CO2 in air at 0 °C \tab m\eqn{^2} / s \tab 12.9 \cr
+#' \eqn{D_{h,0}}{D_h0} \tab \code{D_h0} \tab diffusion coefficient for heat in air at 0 °C \tab m\eqn{^2} / s \tab 1.9e-5 \cr
+#' \eqn{D_{m,0}}{D_m0} \tab \code{D_m0} \tab diffusion coefficient for momentum in air at 0 °C \tab m\eqn{^2} / s \tab 13.3e-06 \cr
+#' \eqn{\epsilon} \tab \code{epsilon} \tab ratio of water to air molar masses \tab none \tab 0.622 \cr
+#' \eqn{G} \tab \code{G} \tab gravitational acceleration \tab m / s\eqn{^2} \tab 9.8 \cr
+#' \eqn{eT} \tab \code{eT} \tab exponent for temperature dependence of diffusion \tab none \tab 1.75 \cr
+#' \eqn{R} \tab \code{R} \tab ideal gas constant \tab J / (mol K) \tab 8.3144598 \cr
+#' \eqn{\sigma} \tab \code{s} \tab Stephan-Boltzmann constant \tab W / (m\eqn{^2} K\eqn{^4}) \tab 5.67e-08 \cr
+#' \eqn{Sh} \tab \code{Sh} \tab Sherwood number \tab none \tab \link[=.get_sh]{calculated}
 #' }
 #'
-#' * see manual for further detail on calculation
-#'
+#' @references 
+#' 
+#' Buckley TN and Diaz-Espejo A. 2015. Partitioning changes in photosynthetic rate into contributions from different variables. Plant, Cell & Environment 38: 1200-11.
+#' 
+#' @examples 
+#' constants <- make_constants()
+#' leaf_par <- make_leafpar(constants)
+#' enviro_par <- make_enviropar()
+#' bake_par <- make_bakepar()
+#' 
+#' leaf_par <- make_leafpar(constants,
+#'   replace = list(
+#'     g_sc = set_units(3, "umol/m^2/s/Pa"),
+#'     V_cmax25 = set_units(100, "umol/m^2/s")
+#'   )
+#' )
+#' 
 #' @export
 
-make_leafpar <- function(replace = NULL, leaf_traits = NULL) {
-
-  ##### Defaults -----
-  obj <- list(
-    abs_s = set_units(0.8),
-    abs_l = set_units(0.97),
-    g_xc = set_units(10, "umol / (m^2 * s * Pa)"), # CHECK DEFAULT in Pa^-1
-    g_ic = set_units(10, "umol / (m^2 * s * Pa)"), # CHECK DEFAULT in Pa^-1
-    g_uw = set_units(0.1, "umol / (m^2 * s * Pa)"), # CHECK DEFAULT in Pa^-1
-    k_x = set_units(1),
-    V_cmax = set_units(50, "umol / (m^2 * s)"),
-    J_max = set_units(100, "umol / (m^2 * s)"),
-    R_d = set_units(2, "umol / (m^2 * s)"),
-    K_c = set_units(27.238, "Pa"), # From Sharkey et al. 2007. Newer source? Check bayCi
-    K_o = set_units(16.582, "kPa"), # From Sharkey et al. 2007. Newer source? Check bayCi
-    gamma_star = set_units(3.73, "Pa"), # From Sharkey et al. 2007. Newer source? Check bayCi
-    g_sw = set_units(5, "umol / (m^2 * s * Pa)"), # CHECK DEFAULT in Pa^-1
-    leafsize = set_units(0.1, "m"),
-    sr = set_units(0)
-  )
+make_leafpar <- function(constants, replace = NULL, 
+                         default_to = "photosynthesis", quiet = FALSE) {
   
-  ##### Replace defaults -----
+  constants %<>% constants()
+  
+  default_to %<>% match.arg(c("photosynthesis", "tealeaves"))
+  
+  # Combine defaults -----
+  tl_leafpar <- tealeaves::make_leafpar()
+  ph_leafpar <- photosynthesis::make_leafpar()
+  ph_leafpar[["T_leaf"]] <- NULL
+  obj <- combine_defaults(tl_leafpar, ph_leafpar, default_to, quiet)
+  
+  # Replace defaults ----
   obj %<>% replace_defaults(replace)
-
-  ##### Remove leaf traits to be optimized -----
-  for (i in leaf_traits) obj[[i]] <- NULL
   
-  ##### Assign class and return -----
+  # Harmonize conductances ----
+  if (default_to == "photosynthesis") {
+    obj$g_sw <- gc2gw(obj$g_sc, constants$D_c0, constants$D_w0)
+    obj$g_uw <- gc2gw(obj$g_uc, constants$D_c0, constants$D_w0)
+  } else {
+    obj$g_sc <- gw2gc(obj$g_sw, constants$D_c0, constants$D_w0)
+    obj$g_uc <- gw2gc(obj$g_uw, constants$D_c0, constants$D_w0)
+  }
+  
+  # Notify if g_sw or g_sc are in replace ----
+  if (("g_sw" %in% replace | "g_sc" %in% replace) & !quiet) {
+    glue::glue("{x1} automatically converted from {x2} based on constants D_c0 and D_w0",
+               x1 = switch(default_to,
+                           photosynthesis = "g_sw",
+                           tealeaves = "g_sc"),
+               x2 = switch(default_to,
+                           photosynthesis = "g_sc",
+                           tealeaves = "g_sw")) %>%
+      message()
+  }
+  
+  # Notify if g_uw or g_uc are in replace ----
+  if (("g_uw" %in% replace | "g_uc" %in% replace) & !quiet) {
+    glue::glue("{x1} automatically converted from {x2} based on constants D_c0 and D_w0",
+               x1 = switch(default_to,
+                           photosynthesis = "g_uw",
+                           tealeaves = "g_uc"),
+               x2 = switch(default_to,
+                           photosynthesis = "g_uc",
+                           tealeaves = "g_uw")) %>%
+      message()
+  }
+  
+  # Assign class and return -----
   obj %<>% leaf_par()
-
+  
   obj
-
+  
 }
 
 #' make_enviropar
 #' @rdname make_parameters
 #' @export
 
-
-make_enviropar <- function(replace = NULL) {
-
-  ##### Defaults -----
-  obj <- list(
-    T_air = set_units(298.15, "K"),
-    RH = set_units(0.50),
-    S_sw = set_units(1000, "W / m^2"),
-    S_lw = set_units(825, "W / m^2"),
-    wind = set_units(2, "m / s"),
-    C_air = set_units(4e-4), # in proportion
-    P = set_units(101.3246, "kPa"),
-    O = set_units(0.21) # in proportion
-  ) 
+make_enviropar <- function(replace = NULL, default_to = "photosynthesis", 
+                           quiet = FALSE) {
   
-  ##### Replace defaults -----
-
+  default_to %<>% match.arg(c("photosynthesis", "tealeaves"))
+  
+  # Combine defaults -----
+  tl_enviropar <- tealeaves::make_enviropar()
+  ph_enviropar <- photosynthesis::make_enviropar()
+  obj <- combine_defaults(tl_enviropar, ph_enviropar, default_to, quiet)
+  
+  # Add new leafoptimizer-specific parameters
+  obj$f_par = set_units(0.5)
+  obj$E_q = set_units(220, "kJ/mol")
+  
+  # Replace defaults ----
   obj %<>% replace_defaults(replace)
 
-  ##### Assign class and return -----
+  # Harmonize PPFD AND S_sw ----
+  if (default_to == "photosynthesis") {
+    obj$S_sw <- ppfd2sun(obj$PPFD, obj$f_par, obj$E_q)
+  } else {
+    obj$PPFD <- sun2ppfd(obj$S_sw, obj$f_par, obj$E_q)
+  }
+  
+  # Notify if PPFD or S_sw are in replace ----
+  if (("S_sw" %in% replace | "PPFD" %in% replace) & !quiet) {
+    glue::glue("{x1} automatically converted from {x2} based on f_par and E_q",
+               x1 = switch(default_to,
+                           photosynthesis = "S_sw",
+                           tealeaves = "PPFD"),
+               x2 = switch(default_to,
+                           photosynthesis = "PPFD",
+                           tealeaves = "S_sw")) %>%
+      message()
+  }
+  
+  # Assign class and return ----
   obj %<>% enviro_par()
   
   obj
+  
+}
+
+#' make_bakepar
+#' @rdname make_parameters
+#' @export
+
+make_bakepar <- function(replace = NULL) {
+  
+  photosynthesis::make_bakepar(replace)
 
 }
 
@@ -144,95 +234,94 @@ make_enviropar <- function(replace = NULL) {
 #' @rdname make_parameters
 #' @export
 
-make_constants <- function(replace = NULL) {
-
-  ##### Defaults -----
-  obj <- list(
-    thetaJ = set_units(0.86),
-    phi = set_units(0.25), # Foster and Smith reported as e / hv
-    s = set_units(5.67e-08, "W / (m ^ 2 * K ^ 4)"),
-    R = set_units(8.3144598, "J / (mol * K)"),
-    R_air = set_units(287.058, "J / (kg * K)"),
-    eT = set_units(1.75),
-    nu_constant = function(Re, type, T_air, T_leaf, surface) {
-      
-      stopifnot(units(T_air)$numerator == "K" & 
-                  length(units(T_air)$denominator) == 0L)
-      stopifnot(units(T_leaf)$numerator == "K" & 
-                  length(units(T_leaf)$denominator) == 0L)
-      
-      type %<>% match.arg(c("free", "forced"))
-      
-      if (identical(type, "forced")) {
-        if (Re <= set_units(4000)) ret <- list(a = 0.6, b = 0.5)
-        if (Re > set_units(4000)) ret <- list(a = 0.032, b = 0.8)
-        return(ret)
-      }
-      
-      if (identical(type, "free")) {
-        surface %<>% match.arg(c("lower", "upper"))
-        if ((surface == "upper" & T_leaf > T_air) |
-            (surface == "lower" & T_leaf < T_air)) {
-          ret <- list(a = 0.5, b = 0.25)
-        } else {
-          ret <- list(a = 0.23, b = 0.25)
-        }
-        return(ret)
-      }
-      
-    },
-    D_h0 = set_units(1.9e-5, "m ^ 2 / s"),
-    D_m0 = set_units(13.3e-6, "m ^ 2 / s"),
-    D_w0 = set_units(21.2e-6, "m ^ 2 / s"),
-    t_air = set_units(3.66e-3, "1 / K"),
-    G = set_units(9.8, "m / s ^ 2"),
-    sh_constant = function(type) {
-      
-      type %>%
-        match.arg(c("free", "forced")) %>%
-        switch(forced = 0.33, free = 0.25) %>%
-        set_units()
-      
-    },
-    c_p = set_units(1.01, "J / (g * K)")
-  )
-
-  ##### Replace defaults -----
-
+make_constants <- function(replace = NULL, default_to = "photosynthesis",
+                           quiet = FALSE) {
+  
+  default_to %<>% match.arg(c("photosynthesis", "tealeaves"))
+  
+  # Combine defaults -----
+  tl_constants <- tealeaves::make_constants()
+  ph_constants <- photosynthesis::make_constants()
+  obj <- combine_defaults(tl_constants, ph_constants, default_to, quiet)
+  
+  # Replace defaults -----
   if ("nu_constant" %in% names(replace)) {
     stopifnot(is.function(replace$nu_constant))
     obj$nu_constant <- replace$nu_constant
     replace$nu_constant <- NULL
   }
-
+  
   if ("sh_constant" %in% names(replace)) {
     stopifnot(is.function(replace$sh_constant))
     obj$sh_constant <- replace$sh_constant
     replace$sh_constant <- NULL
   }
-
+  
   obj %<>% replace_defaults(replace)
-
-  ##### Assign class and return -----
+  
+  # Assign class and return -----
   obj %<>% constants()
   
   obj
-
+  
 }
 
-#' Traits missing from traits argument (i.e. traits to be fixed rather than optimized)
-#'
-#' @inheritParams evolve_leaf
-#'
+#' Combine default parameters
+#' 
+#' @param tl_pars List of {tealeaves} parameters.
+#' @param ph_pars List of {photosynthesis} parameters.
+#' @inheritParams make_parameters
 
-.missing_traits <- function(leaf_traits) {
+combine_defaults <- function(tl_pars, ph_pars, default_to, quiet) {
+  
+  stopifnot(identical(class(tl_pars), class(ph_pars)))
+  
+  shared_pars <- intersect(names(tl_pars), names(ph_pars))
+  
+  tl_fxns <- tl_pars %>%
+    purrr::map(class) %>%
+    magrittr::equals("function") %>%
+    which() %>%
+    names()
+  
+  ph_fxns <- ph_pars %>%
+    purrr::map(class) %>%
+    magrittr::equals("function") %>%
+    which() %>%
+    names()
+  
+  shared_fxns <- intersect(tl_fxns, ph_fxns)
+  
+  shared_pars %<>% setdiff(shared_fxns)
+  
+  defaults_identical <- purrr::map_lgl(
+    shared_pars, function(x) identical(tl_pars[x], ph_pars[x])
+  )
+  
+  if (any(!defaults_identical) & !quiet) {
+    
+    shared_pars %>%
+      magrittr::extract(!defaults_identical) %>%
+      tl_pars[.] %>%
+      cbind(ph_pars[names(.)]) %>%
+      as.data.frame() %>%
+      tibble::rownames_to_column("par") %>%
+      magrittr::set_colnames(
+        switch(default_to,
+               photosynthesis = c("par", "tealeaves (from)", "photosynthesis (to)"),
+               tealeaves = c("par", "photosynthesis (from)", "tealeaves (to)"))
+      ) %>%
+      print()
 
-  possible_traits <- c("g_sw", "sr", "leafsize")
-  if (length(leaf_traits) == 0) return(possible_traits)
-  ret <- possible_traits %>%
-    base::setdiff(., base::match.arg(leaf_traits, ., several.ok = TRUE))
-
-  ret
+  }
+  
+  if (default_to == "photosynthesis") {
+    ph_pars %<>% c(tl_pars[!(names(tl_pars) %in% names(.))])
+    return(ph_pars)
+  } else {
+    tl_pars %<>% c(ph_pars[!(names(ph_pars) %in% names(.))])
+    return(tl_pars)
+  }
 
 }
 
@@ -243,9 +332,9 @@ make_constants <- function(replace = NULL) {
 #'
 
 replace_defaults <- function(obj, replace) {
-
+  
   if (!is.null(replace)) {
-
+    
     stopifnot(is.list(replace))
     stopifnot(all(sapply(replace, inherits, what = "units")))
     stopifnot(all(sapply(replace, is.numeric)))
@@ -255,9 +344,9 @@ replace_defaults <- function(obj, replace) {
       x %<>% .[. %in% names(obj)]
     }
     obj[x] <- replace[x]
-
+    
   }
-
+  
   obj
-
+  
 }

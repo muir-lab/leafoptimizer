@@ -19,23 +19,25 @@ constants <- function(.x) {
   
   stopifnot(all(nms %in% names(.x)))
   
+  repeated_tab <- plyr::count(names(.x)) %>%
+    dplyr::filter(.data$freq > 1)
+  if (nrow(repeated_tab) > 0) {
+    repeated_tab$x %>%
+      as.character() %>%
+      stringr::str_c(collapse = ", ") %>%
+      glue::glue("{x} ha{suffix} more than one entry. Only one named entry is allowed per parameter.", x = ., suffix = dplyr::if_else(stringr::str_detect(., ", "), "ve", "s")) %>%
+      stop()
+  }
+  
   .x %<>% magrittr::extract(nms)
   
-  # Check values ------
-  stopifnot(.x$thetaJ >= set_units(0) & .x$thetaJ <= set_units(1))
-  stopifnot(.x$phi >= set_units(0) & .x$phi <= set_units(1))
-  stopifnot(.x$s >= set_units(0, "W / (m ^ 2 * K ^ 4)"))
-  stopifnot(.x$R >= set_units(0, "J / (mol * K)"))
-  stopifnot(.x$R_air >= set_units(0, "J / (kg * K)"))
-  stopifnot(.x$eT >= set_units(0))
-  stopifnot(.x$D_h0 >= set_units(0, "m ^ 2 / s"))
-  stopifnot(.x$D_m0 >= set_units(0, "m ^ 2 / s"))
-  stopifnot(.x$D_w0 >= set_units(0, "m ^ 2 / s"))
-  stopifnot(.x$t_air >= set_units(0, "1 / K"))
-  stopifnot(.x$G >= set_units(0, "m / s ^ 2"))
-  stopifnot(.x$c_p >= set_units(0, "J / (g * K)"))
-  
-  structure(.x, class = c(which, "list"))
+  tl_constants <- tealeaves::constants(.x)
+  ph_constants <- photosynthesis::constants(.x)
+  shared_constants <- intersect(names(tl_constants), names(ph_constants))
+  stopifnot(identical(tl_constants[shared_constants], 
+                      ph_constants[shared_constants]))
+    
+  structure(.x[nms], class = c(which, "list"))
   
 }
 

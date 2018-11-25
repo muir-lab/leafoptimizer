@@ -19,23 +19,24 @@ leaf_par <- function(.x) {
   
   stopifnot(all(nms %in% names(.x)))
   
+  repeated_tab <- plyr::count(names(.x)) %>%
+    dplyr::filter(.data$freq > 1)
+  if (nrow(repeated_tab) > 0) {
+    repeated_tab$x %>%
+      as.character() %>%
+      stringr::str_c(collapse = ", ") %>%
+      glue::glue("{x} ha{suffix} more than one entry. Only one named entry is allowed per parameter.", x = ., suffix = dplyr::if_else(stringr::str_detect(., ", "), "ve", "s")) %>%
+      stop()
+  }
+  
   .x %<>% magrittr::extract(nms)
   
-  # Check values ------
-  stopifnot(.x$abs_s >= set_units(0) & .x$abs_s <= set_units(1))
-  stopifnot(.x$abs_l >= set_units(0) & .x$abs_l <= set_units(1))
-  stopifnot(.x$g_xc >= set_units(0, "mol / (m^2 * s * Pa)"))
-  stopifnot(.x$g_ic >= set_units(0, "mol / (m^2 * s * Pa)"))
-  stopifnot(.x$k_x >= set_units(0))
-  stopifnot(.x$V_cmax >= set_units(0, "umol / (m^2 * s)"))
-  stopifnot(.x$J_max >= set_units(0, "umol / (m^2 * s)"))
-  stopifnot(.x$R_d >= set_units(0, "umol / (m^2 * s)"))
-  stopifnot(.x$K_c >= set_units(0, "Pa"))
-  stopifnot(.x$K_o >= set_units(0, "kPa"))
-  stopifnot(.x$gamma_star >= set_units(0, "Pa"))
-  stopifnot(.x$g_sw >= set_units(0, "umol / (m^2 * s * Pa)"))
-  stopifnot(.x$leafsize >= set_units(0, "m"))
-
+  tl_leafpar <- tealeaves::leaf_par(.x)
+  ph_leafpar <- photosynthesis::leaf_par(c(.x, T_leaf = set_units(298.15, "K")))
+  shared_leafpar <- intersect(names(tl_leafpar), names(ph_leafpar))
+  stopifnot(identical(tl_leafpar[shared_leafpar], 
+                      ph_leafpar[shared_leafpar]))
+  
   structure(.x, class = c(stringr::str_c(which, "_par"), "list"))
   
 }

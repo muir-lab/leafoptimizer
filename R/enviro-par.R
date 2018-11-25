@@ -19,17 +19,31 @@ enviro_par <- function(.x) {
   
   stopifnot(all(nms %in% names(.x)))
   
+  repeated_tab <- plyr::count(names(.x)) %>%
+    dplyr::filter(.data$freq > 1)
+  if (nrow(repeated_tab) > 0) {
+    repeated_tab$x %>%
+      as.character() %>%
+      stringr::str_c(collapse = ", ") %>%
+      glue::glue("{x} ha{suffix} more than one entry. Only one named entry is allowed per parameter.", x = ., suffix = dplyr::if_else(stringr::str_detect(., ", "), "ve", "s")) %>%
+      stop()
+  }
+  
   .x %<>% magrittr::extract(nms)
   
-  # Check values ------
-  stopifnot(.x$T_air >= set_units(0, "K"))
-  stopifnot(.x$RH >= set_units(0) & .x$RH <= set_units(1))
-  stopifnot(.x$S_sw >= set_units(0, "W / m^2"))
-  stopifnot(.x$S_lw >= set_units(0, "W / m^2"))
-  stopifnot(.x$wind >= set_units(0, "m / s"))
-  stopifnot(.x$C_air >= set_units(0) & .x$C_air <= set_units(1))
-  stopifnot(.x$P >= set_units(0, "kPa"))
-  stopifnot(.x$O >= set_units(0) & .x$O <= set_units(1))
+  # Set units ----
+  .x$E_q %<>% set_units("kJ/mol")
+  .x$f_par %<>% set_units()
+  
+  # Check units ----
+  stopifnot(.x$E_q >= set_units(0, "kJ/mol"))
+  stopifnot(.x$f_par >= set_units(0) & .x$f_par <= set_units(1))
+  
+  tl_enviropar <- tealeaves::enviro_par(.x)
+  ph_enviropar <- photosynthesis::enviro_par(.x)
+  shared_enviropar <- intersect(names(tl_enviropar), names(ph_enviropar))
+  stopifnot(identical(tl_enviropar[shared_enviropar], 
+                      ph_enviropar[shared_enviropar]))
   
   structure(.x, class = c(stringr::str_c(which, "_par"), "list"))
   
