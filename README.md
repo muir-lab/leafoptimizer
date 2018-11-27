@@ -1,28 +1,28 @@
-leafevolver
+leafoptimizer
 =======
 
-## Evolve leaf traits to different environments *in silico*
+## Optimize leaf traits to different environments *in silico*
 
 ## Description
 
-## Get leafevolver
+## Get leafoptimizer
 From CRAN (not on CRAN yet)
 
 ```r
-install.packages("leafevolver")
+install.packages("leafoptimizer")
 ```
 
-or from rOpenSci
+or from GitHub
 
 ```r
 install.packages("devtools")
-devtools::install_github("cdmuir/leafevolver")
+devtools::install_github("cdmuir/leafoptimizer")
 ```
 
-And load leafevolver
+And load leafoptimizer
 
 ```r
-library("leafevolver")
+library("leafoptimizer")
 ```
 
 ## Code of Conduct
