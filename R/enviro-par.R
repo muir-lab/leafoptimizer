@@ -17,7 +17,13 @@ enviro_par <- function(.x) {
   
   stopifnot(is.list(.x))
   
-  stopifnot(all(nms %in% names(.x)))
+  if (!all(nms %in% names(.x))) {
+    nms[!(nms %in% names(.x))] %>%
+      stringr::str_c(collapse = ", ") %>%
+      glue::glue("{x} not in parameter names required for {which}_par",
+                 x = ., which = which) %>%
+      stop()
+  }
   
   repeated_tab <- plyr::count(names(.x)) %>%
     dplyr::filter(.data$freq > 1)

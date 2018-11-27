@@ -1,20 +1,24 @@
 Package: leafoptimizer
 Version: 0.0.0.9000
-Date: 2018-11-25
+Date: 2018-11-26
 Title: Optimize leaf traits to different environments in silico
 Authors@R: person("Chris", "Muir", role = c("aut", "cre"), email = "cdmuir@hawaii.edu")
 Depends: R (>= 3.5.0), units (>= 0.6.0)
-Imports: dplyr (>= 0.7.0),
+Imports: crayon (>= 1.3.4),
+         dplyr (>= 0.7.0),
          glue (>= 1.3.0),
          magrittr (>= 1.5.0),
-         methods,
+         methods (>= 3.5.0),
          photosynthesis (>= 0.0.1),
-         plyr,
-         purrr,
+         plyr (>= 1.8.4),
+         purrr (>= 0.2.5),
          rlang (>= 0.3.0),
          stringr (>= 1.3.0),
          tealeaves (>= 0.0.3),
-         tibble
+         tibble (>= 1.4.2),
+         tidyr (>= 0.8.2),
+         tidyselect (>= 0.2.5),
+         zeallot (>= 0.1.0)
 Suggests: 
     testthat,
     knitr,
