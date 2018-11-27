@@ -115,6 +115,26 @@ optimize_leaves <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par
     glue::glue("tidyr::crossing({x})", x = .) %>%
     parse(text = .) %>%
     eval() %>%
+    # Exclude mismatched parameter sets generated in tidyr::crossing
+    dplyr::mutate(
+      PPFD1 = drop_units(sun2ppfd(
+        set_units(.data$S_sw, par_units[["S_sw"]], mode = "standard"), 
+        set_units(.data$f_par, par_units[["f_par"]], mode = "standard"), 
+        set_units(.data$E_q, par_units[["E_q"]], mode = "standard")
+      )),
+      g_sw1 = drop_units(gc2gw(
+        set_units(.data$g_sc, par_units[["g_sc"]], mode = "standard"),
+        constants$D_c0, constants$D_w0
+      )),
+      g_uw1 = drop_units(gc2gw(
+        set_units(.data$g_uc, par_units[["g_uc"]], mode = "standard"),
+        constants$D_c0, constants$D_w0
+      ))
+    ) %>%
+    dplyr::filter(round(.data$PPFD, 6) == round(.data$PPFD1, 6),
+                  round(.data$g_sw, 6) == round(.data$g_sw1, 6),
+                  round(.data$g_uw, 6) == round(.data$g_uw1, 6)) %>%
+    dplyr::select(-"PPFD1", -"g_sw1", -"g_uw1") %>%
     purrr::transpose()
   
   tidyr::crossing(i = seq_len(length(pars)),

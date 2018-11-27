@@ -6,7 +6,7 @@
 #' \href{https://github.com/cdmuir/leafoptimizer}{GitHub}
 #'
 #' @docType package
-#' @name leafevolver
+#' @name leafoptimizer
 #' @importFrom magrittr %>% %<>%
 #' @importFrom methods is
 #' @importFrom rlang .data
@@ -16,4 +16,4 @@
 NULL
 
 ## quiets concerns of R CMD check re: the .'s that appear in pipelines
-if(getRversion() >= "2.15.1")  utils::globalVariables(c("."))
+if(getRversion() >= "2.15.1")  utils::globalVariables(c(".", "lower", "upper"))
