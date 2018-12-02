@@ -343,13 +343,14 @@ find_optimum <- function(pars, quiet) {
 #' Calculate carbon balance
 #' 
 #' @inheritParams optimize_leaves
-#' @param T_leaf Leaf temperature in degree Kelvin
-#' @param pars Concatenated parameters (\code{leaf_par}, \code{enviro_par}, \code{bake_par}, and \code{constants})
-#' #' @param check Logical. Should all parameter sets be checked? TRUE is safer, but FALSE is faster.
+#' @param T_leaf Leaf temperature in degree Kelvin with \code{units} dropped
+#' @param pars Concatenated parameters (\code{leaf_par}, \code{enviro_par}, \code{bake_par}, and \code{constants}) with \code{units} dropped
 #' 
-#' @return Value of class \code{units} indicating the carbon balance.
+#' @return Value of class \code{numeric} indicating the carbon balance.
 #' 
 #' @details 
+#' 
+#' This function is not intended to be called directly because most checks have been removed for speed in \code{\link{optimize_leaf}}.
 #' 
 #' Currently only carbon a cost of water lost to transpiration is supported. Functions calculate the instantaneous leaf-level carbon gain and water loss per area. In the future, I plan to extend functionality to other resources (e.g. nitrogen) and integrate over time courses.
 #' 
@@ -358,24 +359,29 @@ find_optimum <- function(pars, quiet) {
 #' Carbon Balance = Carbon gain - (Carbon cost of water) Water loss
 #' 
 #' @examples 
+#' library(magrittr)
 #' cs <- make_constants()
 #' lp <- make_leafpar(cs)
 #' bp <- make_bakepar()  
 #' ep <- make_enviropar()
 #' 
-#' T_leaf <- tealeaves::tleaf(lp, ep, cs)$T_leaf
+#' T_leaf <- tealeaves::tleaf(lp, ep, cs, unitless = TRUE)$T_leaf
+#' blp <- lp %>% 
+#'   c(T_leaf = T_leaf) %>%
+#'   bake(bp, cs)
 #' carbon_costs <- list(H2O = 0.003)
-#' pars <- c(cs, lp, bp, ep)
+#' pars <- c(cs, lp[!(names(lp) %in% names(blp))], blp, ep) %>%
+#'   purrr::map_if(function(x) is(x, "units"), drop_units)
+#' T_leaf %<>% drop_units()
 #' 
+#' # everything must be unitless
+#' # pars must already be baked
 #' carbon_balance(T_leaf, carbon_costs, pars)
 #' 
 #' @export
 
 carbon_balance <- function(T_leaf, carbon_costs, pars) {
   
-  # everything must be unitless
-  # pars must already be baked
-
   # Carbon gain ----
   C_gain <- find_A(pars)$A
   

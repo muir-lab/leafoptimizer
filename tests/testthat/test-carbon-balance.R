@@ -55,8 +55,7 @@ test_that("carbon_balance calculates A correctly", {
   baked_pars <- c(cs, lp[!(names(lp) %in% names(blp))], blp, ep) %>%
     purrr::map_if(function(x) is(x, "units"), drop_units)
   
-  A1 <- photosynthesis::photo(c(lp, T_leaf = T_leaf), ep, bp, cs, quiet = TRUE, 
-                              unitless = FALSE)$A
+  A1 <- photosynthesis::photo(c(lp, T_leaf = T_leaf), ep, bp, cs, quiet = TRUE)$A
   A2 <- find_A(baked_pars)$A
   
   expect_equal(drop_units(A1), A2)
@@ -110,8 +109,7 @@ test_that("carbon_balance calculates carbon balance correctly", {
   
   E1 <- tealeaves::energy_balance(T_leaf, lp, ep, cs, quiet = TRUE, 
                                   unitless = FALSE, components = TRUE)$components$E
-  A1 <- photosynthesis::photo(c(lp, T_leaf = T_leaf), ep, bp, cs, quiet = TRUE, 
-                              unitless = FALSE)$A
+  A1 <- photosynthesis::photo(c(lp, T_leaf = T_leaf), ep, bp, cs, quiet = TRUE)$A
   
   C_gain <- A1
   C_cost <- carbon_costs$H2O * set_units(E1, "umol/m^2/s")
