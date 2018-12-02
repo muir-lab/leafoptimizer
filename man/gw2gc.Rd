@@ -5,9 +5,9 @@
 \alias{gc2gw}
 \title{Convert g_c (\eqn{\mu}mol CO2/m^2/s/Pa) to g_w (\eqn{\mu}mol H2O /m^2/s/Pa)}
 \usage{
-gw2gc(g_w, D_c, D_w)
+gw2gc(g_w, D_c, D_w, unitless)
 
-gc2gw(g_c, D_c, D_w)
+gc2gw(g_c, D_c, D_w, unitless)
 }
 \arguments{
 \item{g_w}{conductance to water vapor in units (\eqn{\mu}mol H2O / (m^2 s Pa)) of class \code{units}.}
@@ -15,6 +15,8 @@ gc2gw(g_c, D_c, D_w)
 \item{D_c}{diffusion coefficient for CO2 in air in units of m^2/s of call \code{units}}
 
 \item{D_w}{diffusion coefficient for H2O in air in units of m^2/s of call \code{units}}
+
+\item{unitless}{Logical. Should \code{units} be set? The function is faster when FALSE, but input must be in correct units or else results will be incorrect without any warning.}
 
 \item{g_c}{conductance to CO2 in units (\eqn{\mu}mol H2O / (m^2 s Pa)) of class \code{units}.}
 }

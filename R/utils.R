@@ -73,6 +73,7 @@ ppfd2sun <- function(PPFD, f_par, E_q) {
 
 #' Convert g_c (\eqn{\mu}mol CO2/m^2/s/Pa) to g_w (\eqn{\mu}mol H2O /m^2/s/Pa)
 #'
+#' @inheritParams optimize_leaves
 #' @param g_w conductance to water vapor in units (\eqn{\mu}mol H2O / (m^2 s Pa)) of class \code{units}.
 #' @param D_c diffusion coefficient for CO2 in air in units of m^2/s of call \code{units}
 #' @param D_w diffusion coefficient for H2O in air in units of m^2/s of call \code{units}
@@ -98,15 +99,19 @@ ppfd2sun <- function(PPFD, f_par, E_q) {
 #' @export
 #'
 
-gw2gc <- function(g_w, D_c, D_w) {
+gw2gc <- function(g_w, D_c, D_w, unitless) {
   
-  g_w %<>% set_units("umol/m^2/s/Pa")
-  D_c %<>% set_units("m^2/s")
-  D_w %<>% set_units("m^2/s")
+  if (!unitless) {
+    g_w %<>% set_units("umol/m^2/s/Pa")
+    D_c %<>% set_units("m^2/s")
+    D_w %<>% set_units("m^2/s")
+  }
   
-  g_w %>% 
-    magrittr::multiply_by(D_c / D_w) %>%
-    set_units("umol/m^2/s/Pa")
+  g_w %>% magrittr::multiply_by(D_c / D_w) 
+  
+  if (!unitless) g_w %<>% set_units("umol/m^2/s/Pa")
+  
+  g_w
   
 }
 
@@ -119,14 +124,18 @@ gw2gc <- function(g_w, D_c, D_w) {
 #' @export
 #' 
 
-gc2gw <- function(g_c, D_c, D_w) {
+gc2gw <- function(g_c, D_c, D_w, unitless) {
   
-  g_c %<>% set_units("umol/m^2/s/Pa")
-  D_c %<>% set_units("m^2/s")
-  D_w %<>% set_units("m^2/s")
-
-  g_c %>% 
-    magrittr::multiply_by(D_w / D_c) %>%
-    set_units("umol/m^2/s/Pa")
+  if (!unitless) {
+    g_c %<>% set_units("umol/m^2/s/Pa")
+    D_c %<>% set_units("m^2/s")
+    D_w %<>% set_units("m^2/s")
+  }
+  
+  g_c %>% magrittr::multiply_by(D_w / D_c) 
+  
+  if (!unitless) g_c %<>% set_units("umol/m^2/s/Pa")
+  
+  g_c
   
 }

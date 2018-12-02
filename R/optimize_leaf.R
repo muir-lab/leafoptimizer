@@ -18,6 +18,8 @@
 #' 
 #' @param quiet Logical. Should messages be displayed?
 #' 
+#' @param unitless Logical. Should \code{units} be set? The function is faster when FALSE, but input must be in correct units or else results will be incorrect without any warning.
+#' 
 #' @return 
 #' A data.frame with the following \code{units} columns \cr
 #' 
@@ -100,7 +102,8 @@
 #' 
 
 optimize_leaves <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par, 
-                            constants, progress = TRUE, quiet = FALSE) {
+                            constants, progress = TRUE, quiet = FALSE,
+                            unitless = TRUE) {
   
   # Capture units ----
   pars <- c(leaf_par, enviro_par)
@@ -161,7 +164,7 @@ optimize_leaves <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par
       purrr::map_dfr(~{
         
         ret <- optimize_leaf(traits, carbon_costs, leaf_par(.x), enviro_par(.x), 
-                             bake_par, constants, quiet = TRUE)
+                             bake_par, constants, quiet = TRUE, unitless = unitless)
         if (progress) pb$tick()$print()
         ret
         
@@ -193,37 +196,107 @@ optimize_leaves <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par
 #' @export
 
 optimize_leaf <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par, 
-                          constants, quiet = FALSE) {
+                          constants, quiet = FALSE, unitless = TRUE) {
   
   # Check traits ----
   traits %<>% match.arg(c("g_sc", "logit_sr"), TRUE)  
 
+  # Check carbon costs ----
+  stopifnot(is.list(carbon_costs))
+  stopifnot("H2O" %in% names(carbon_costs))
+  stopifnot(length(carbon_costs$H2O) == 1L)
+  stopifnot(is.numeric(carbon_costs$H2O))
+  if (!quiet & length(carbon_costs) > 1L) {
+    "Only the carbon cost of H2O is currently supported. Other elements will be ignored." %>%
+      crayon::green() %>%
+      message()
+  }
+  
+  # Check parameters ----
+  cs <- constants(pars)
+  lp <- leaf_par(pars)
+  bp <- photosynthesis::bake_par(pars)
+  ep <- enviro_par(pars)
+  
+  # Concatenate parameters ----
   pars <- c(leaf_par, enviro_par, bake_par, constants)
+  
+  # Find optimum ----
+  soln <- find_optimum(pars, quiet)
+  
+  # Check results ----
+  if (soln$convergence == 1) {
+    "stats::optim did not converge, NA returned. Inspect parameters carefully." %>%
+      crayon::red() %>%
+      message()
+  }
+  
+  # Put optimized traits in pars to calculate T_leaf, A, and E ----
+  if ("g_sc" %in% traits) {
+    pars$g_sc <- soln$g_sc
+    pars$g_sw <- gc2gw(pars$g_sc, pars$D_c0, pars$D_w0, unitless = TRUE) 
+  }
+  
+  if ("logit_sr" %in% traits) {
+    pars$logit_sr <- soln$logit_sr
+    pars$k_sc <- pars$logit_sr %>%
+      stats::plogis() %>%
+      magrittr::divide_by(1 - .)
+  }
+  
+  # Calculate T_leaf, A, and E ----
+  tl <- tealeaves::tleaf(tealeaves::leaf_par(pars), 
+                         tealeaves::enviro_par(pars),
+                         tealeaves::constants(pars), unitless = TRUE)
+  pars$T_leaf <- set_units(tl$T_leaf, "K")
+  ph <- photosynthesis::photo(photosynthesis::leaf_par(pars),
+                              photosynthesis::enviro_par(pars),
+                              photosynthesis::bake_par(pars),
+                              photosynthesis::constants(pars),
+                              unitless = TRUE)
+  
+  # Return ----
+  soln %<>%
+    dplyr::transmute(carbon_balance = -.data$value) %>%
+    dplyr::bind_cols(as.data.frame(
+      photosynthesis::bake(photosynthesis::leaf_par(pars), 
+                           photosynthesis::bake_par(pars),
+                           photosynthesis::constants(pars))
+    )) %>%
+    dplyr::bind_cols(as.data.frame(enviro_par(pars))) %>%
+    dplyr::bind_cols(dplyr::select(tl, .data$E)) %>%
+    dplyr::bind_cols(dplyr::select(ph, .data$C_chl, .data$g_tc, .data$A))
+  
+  soln  
+  
+}
+
+find_optimum <- function(pars, quiet) {
+  
+  pars %<>% purrr::map_if(function(x) is(x, "units"), drop_units)
+  
+  pars %<>% c(photosynthesis::bake(., ., ., TRUE))
   
   # Find traits that maximize carbon gain ----
   .f <- function(traits, carbon_costs, pars) {
     
     if ("g_sc" %in% names(traits)) {
-      pars$g_sc <- set_units(traits[["g_sc"]], "umol/m^2/s/Pa")
-      pars$g_sw <- gc2gw(pars$g_sc, pars$D_c0, pars$D_w0) 
+      pars$g_sc <- traits[["g_sc"]]
+      pars$g_sw <- gc2gw(pars$g_sc, pars$D_c0, pars$D_w0, unitless = TRUE) 
     }
     
     if ("logit_sr" %in% names(traits)) {
-      pars$logit_sr <- set_units(traits[["logit_sr"]])
+      pars$logit_sr <- traits[["logit_sr"]]
       pars$k_sc <- pars$logit_sr %>%
         stats::plogis() %>%
-        drop_units() %>%
-        magrittr::divide_by(1 - .) %>%
-        set_units()
+        magrittr::divide_by(1 - .)
     }
     
-    tealeaves::tleaf(tealeaves::leaf_par(pars),
-                     tealeaves::enviro_par(pars),
-                     tealeaves::constants(pars), quiet = TRUE) %>%
+    soln <- find_tleaf(leaf_par, enviro_par, constants, quiet, unitless = TRUE)
+    
+    find_tleaf(pars, pars, pars) %>%
       magrittr::use_series("T_leaf") %>%
-      carbon_balance(carbon_costs, pars, quiet = TRUE) %>%
-      set_units("umol/m^2/s") %>%
-      drop_units() %>%
+      carbon_balance(carbon_costs, pars, quiet = TRUE, unitless = TRUE) %>%
       magrittr::multiply_by(-1)
     
   }
@@ -237,10 +310,10 @@ optimize_leaf <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par,
   
   fit <- tryCatch({
     
-    init <- purrr::map(pars[traits], drop_units)
     c(lower, upper) %<-% list(c(g_sc = 0, logit_sr = -10), c(g_sc = 10, logit_sr = 10))
     
-    stats::optim(init, .f, carbon_costs = carbon_costs, pars = pars,
+    stats::optim(pars[traits], .f, carbon_costs = carbon_costs, pars = pars, 
+                 unitless = TRUE,
                  method = ifelse(length(traits) == 1, "Brent", "L-BFGS-B"),
                  lower = lower[traits], upper = upper[traits])
     
@@ -263,51 +336,7 @@ optimize_leaf <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par,
       message()
   }
   
-  # Check results ----
-  if (soln$convergence == 1) {
-    "stats::optim did not converge, NA returned. Inspect parameters carefully." %>%
-      crayon::red() %>%
-      message()
-  }
-  
-  # Put optimized traits in pars to calculate T_leaf, A, and E ----
-  if ("g_sc" %in% traits) {
-    pars$g_sc <- set_units(soln$g_sc, "umol/m^2/s/Pa")
-    pars$g_sw <- gc2gw(pars$g_sc, pars$D_c0, pars$D_w0) 
-  }
-  
-  if ("logit_sr" %in% traits) {
-    pars$logit_sr <- set_units(soln$logit_sr)
-    pars$k_sc <- pars$logit_sr %>%
-      stats::plogis() %>%
-      drop_units() %>%
-      magrittr::divide_by(1 - .) %>%
-      set_units()
-  }
-  
-  # Calculate T_leaf, A, and E ----
-  tl <- tealeaves::tleaf(tealeaves::leaf_par(pars), 
-                         tealeaves::enviro_par(pars),
-                         tealeaves::constants(pars))
-  pars$T_leaf <- set_units(tl$T_leaf, "K")
-  ph <- photosynthesis::photo(photosynthesis::leaf_par(pars),
-                              photosynthesis::enviro_par(pars),
-                              photosynthesis::bake_par(pars),
-                              photosynthesis::constants(pars))
-  
-  # Return ----
-  soln %<>%
-    dplyr::transmute(carbon_balance = -.data$value) %>%
-    dplyr::bind_cols(as.data.frame(
-      photosynthesis::bake(photosynthesis::leaf_par(pars), 
-                           photosynthesis::bake_par(pars),
-                           photosynthesis::constants(pars))
-    )) %>%
-    dplyr::bind_cols(as.data.frame(enviro_par(pars))) %>%
-    dplyr::bind_cols(dplyr::select(tl, .data$E)) %>%
-    dplyr::bind_cols(dplyr::select(ph, .data$C_chl, .data$g_tc, .data$A))
-  
-  soln  
+  soln
   
 }
 
@@ -316,6 +345,7 @@ optimize_leaf <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par,
 #' @inheritParams optimize_leaves
 #' @param T_leaf Leaf temperature in degree Kelvin
 #' @param pars Concatenated parameters (\code{leaf_par}, \code{enviro_par}, \code{bake_par}, and \code{constants})
+#' #' @param check Logical. Should all parameter sets be checked? TRUE is safer, but FALSE is faster.
 #' 
 #' @return Value of class \code{units} indicating the carbon balance.
 #' 
@@ -328,52 +358,82 @@ optimize_leaf <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par,
 #' Carbon Balance = Carbon gain - (Carbon cost of water) Water loss
 #' 
 #' @examples 
-#' cnstnts <- make_constants()
-#' lp <- make_leafpar(cnstnts)
+#' cs <- make_constants()
+#' lp <- make_leafpar(cs)
 #' bp <- make_bakepar()  
 #' ep <- make_enviropar()
 #' 
-#' T_leaf <- tealeaves::tleaf(lp, ep, cnstnts)$T_leaf
+#' T_leaf <- tealeaves::tleaf(lp, ep, cs)$T_leaf
 #' carbon_costs <- list(H2O = 0.003)
-#' pars <- c(cnstnts, lp, bp, ep)
+#' pars <- c(cs, lp, bp, ep)
 #' 
 #' carbon_balance(T_leaf, carbon_costs, pars)
 #' 
 #' @export
 
-carbon_balance <- function(T_leaf, carbon_costs, pars, quiet = FALSE) {
+carbon_balance <- function(T_leaf, carbon_costs, pars) {
   
-  # Checks ----
-  T_leaf %<>% set_units("K")
-  stopifnot(is.list(carbon_costs))
-  stopifnot("H2O" %in% names(carbon_costs))
-  stopifnot(length(carbon_costs$H2O) == 1L)
-  stopifnot(is.numeric(carbon_costs$H2O))
-  if (!quiet & length(carbon_costs) > 1L) {
-    "Only the carbon cost of H2O is currently supported. Other elements will be ignored." %>%
-      crayon::green() %>%
-      message()
-  }
-  cnstnts <- constants(pars)
-  lp <- leaf_par(pars)
-  bp <- photosynthesis::bake_par(pars)
-  ep <- enviro_par(pars)
-  
+  # everything must be unitless
+  # pars must already be baked
+
   # Carbon gain ----
-  ph <- photosynthesis::photo(c(lp, T_leaf = T_leaf), ep, bp, cnstnts, 
-                              quiet = TRUE)
-  C_gain <- set_units(ph$A, "umol/m^2/s")
+  C_gain <- find_A(pars)$A
   
   # Carbon costs ----
-  tl <- tealeaves::energy_balance(T_leaf, lp, ep, cnstnts, quiet = TRUE, 
-                                  components = TRUE)
-  C_cost <- carbon_costs$H2O * set_units(tl$components$E, "umol/m^2/s")
+  tl <- tealeaves::energy_balance(T_leaf, pars, pars, pars, quiet = TRUE, 
+                                  components = TRUE, unitless = TRUE, check = FALSE)
+  C_cost <- carbon_costs$H2O * drop_units(tl$components$E) * 1e6
   
   # Carbon balance ----
   C_gain - C_cost
   
 }
 
+find_tleaf <- function(leaf_par, enviro_par, constants) {
+
+  # For this version, all parameters must arrive unitless  
+  
+  # Balance energy fluxes -----
+  fit <- tryCatch({
+    stats::uniroot(f = tealeaves::energy_balance, leaf_par = leaf_par, 
+                   enviro_par = enviro_par, constants = constants, 
+                   quiet = TRUE, unitless = TRUE, check = FALSE,
+                   lower = enviro_par$T_air - 30, upper = enviro_par$T_air + 30)
+  }, finally = {
+    fit <- list(root = NA, f.root = NA, convergence = 1)
+  })
+  
+  soln <- data.frame(T_leaf = fit$root, value = fit$f.root, 
+                     convergence = dplyr::if_else(is.null(fit$convergence), 0, 1))
+  
+  soln
+  
+}
+
+find_A <- function(pars) {
+  
+  # For this version, all parameters must arrive unitless  
+  
+  .f <- function(C_chl, pars) {
+    photosynthesis::A_supply(C_chl, pars, unitless = TRUE) - 
+      photosynthesis::A_demand(C_chl, pars, unitless = TRUE)
+  }
+  
+  fit <- tryCatch({
+    stats::uniroot(.f, pars = pars, lower = 0.1, upper = max(c(10, pars$C_air)), 
+                   check.conv = TRUE)
+  }, finally = {
+    fit <- list(root = NA, f.root = NA, convergence = 1)
+  })
+  
+  soln <- data.frame(C_chl = fit$root, value = fit$f.root, 
+                     convergence = dplyr::if_else(is.null(fit$convergence), 0, 1))
+  
+  soln$A <- photosynthesis::A_supply(soln$C_chl, pars, unitless = TRUE)
+  
+  soln
+  
+}
 
 
 

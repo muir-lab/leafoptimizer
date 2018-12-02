@@ -7,10 +7,10 @@
 \title{Optimize leaf photosynthesis}
 \usage{
 optimize_leaves(traits, carbon_costs, leaf_par, enviro_par, bake_par,
-  constants, progress = TRUE, quiet = FALSE)
+  constants, progress = TRUE, quiet = FALSE, unitless = TRUE)
 
 optimize_leaf(traits, carbon_costs, leaf_par, enviro_par, bake_par,
-  constants, quiet = FALSE)
+  constants, quiet = FALSE, unitless = TRUE)
 }
 \arguments{
 \item{traits}{A vector of one or more character strings indicating which trait(s) to optimize. Stomatal conductance (\code{g_sc}) and stomatal ratio (\code{logit_sr}) are currently supported.}
@@ -28,6 +28,8 @@ optimize_leaf(traits, carbon_costs, leaf_par, enviro_par, bake_par,
 \item{progress}{Logical. Should a progress bar be displayed?}
 
 \item{quiet}{Logical. Should messages be displayed?}
+
+\item{unitless}{Logical. Should \code{units} be set? The function is faster when FALSE, but input must be in correct units or else results will be incorrect without any warning.}
 }
 \value{
 A data.frame with the following \code{units} columns \cr

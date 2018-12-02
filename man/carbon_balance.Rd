@@ -4,16 +4,15 @@
 \alias{carbon_balance}
 \title{Calculate carbon balance}
 \usage{
-carbon_balance(T_leaf, carbon_costs, pars, quiet = FALSE)
+carbon_balance(T_leaf, carbon_costs, pars)
 }
 \arguments{
 \item{T_leaf}{Leaf temperature in degree Kelvin}
 
 \item{carbon_costs}{A named list of resources with their costs in terms of carbon (e.g. mol C / mol H2O). Currently only H2O is supported. See details below.}
 
-\item{pars}{Concatenated parameters (\code{leaf_par}, \code{enviro_par}, \code{bake_par}, and \code{constants})}
-
-\item{quiet}{Logical. Should messages be displayed?}
+\item{pars}{Concatenated parameters (\code{leaf_par}, \code{enviro_par}, \code{bake_par}, and \code{constants})
+#' @param check Logical. Should all parameter sets be checked? TRUE is safer, but FALSE is faster.}
 }
 \value{
 Value of class \code{units} indicating the carbon balance.
@@ -29,14 +28,14 @@ The basic equation is:
 Carbon Balance = Carbon gain - (Carbon cost of water) Water loss
 }
 \examples{
-cnstnts <- make_constants()
-lp <- make_leafpar(cnstnts)
+cs <- make_constants()
+lp <- make_leafpar(cs)
 bp <- make_bakepar()  
 ep <- make_enviropar()
 
-T_leaf <- tealeaves::tleaf(lp, ep, cnstnts)$T_leaf
+T_leaf <- tealeaves::tleaf(lp, ep, cs)$T_leaf
 carbon_costs <- list(H2O = 0.003)
-pars <- c(cnstnts, lp, bp, ep)
+pars <- c(cs, lp, bp, ep)
 
 carbon_balance(T_leaf, carbon_costs, pars)
 

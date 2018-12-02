@@ -135,11 +135,11 @@ make_leafpar <- function(constants, replace = NULL,
   
   # Harmonize conductances ----
   if (default_to == "photosynthesis") {
-    obj$g_sw <- gc2gw(obj$g_sc, constants$D_c0, constants$D_w0)
-    obj$g_uw <- gc2gw(obj$g_uc, constants$D_c0, constants$D_w0)
+    obj$g_sw <- gc2gw(obj$g_sc, constants$D_c0, constants$D_w0, unitless = FALSE)
+    obj$g_uw <- gc2gw(obj$g_uc, constants$D_c0, constants$D_w0, unitless = FALSE)
   } else {
-    obj$g_sc <- gw2gc(obj$g_sw, constants$D_c0, constants$D_w0)
-    obj$g_uc <- gw2gc(obj$g_uw, constants$D_c0, constants$D_w0)
+    obj$g_sc <- gw2gc(obj$g_sw, constants$D_c0, constants$D_w0, unitless = FALSE)
+    obj$g_uc <- gw2gc(obj$g_uw, constants$D_c0, constants$D_w0, unitless = FALSE)
   }
   
   # Notify if g_sw or g_sc are in replace ----
