@@ -81,20 +81,22 @@
 #' @examples 
 #' # Single parameter set with 'photo'
 #' 
-#' constants <- make_constants()
-#' leaf_par <- make_leafpar(constants)
-#' enviro_par <- make_enviropar()
-#' bake_par <- make_bakepar()
-#' # optimize_leaf(leaf_par, enviro_par, bake_par, constants)
+#' cs <- make_constants()
+#' lp <- make_leafpar(cs)
+#' ep <- make_enviropar()
+#' bp <- make_bakepar()
+#' traits <- "g_sc"
+#' carbon_costs <- list(H2O = 0.003)
+#' optimize_leaf("g_sc", carbon_costs, lp, ep, bp, cs)
 #' 
 #' # Multiple parameter sets with 'photosynthesis'
 #' 
-#' leaf_par <- make_leafpar(constants,
-#'   replace = list(
-#'     T_leaf = set_units(c(293.14, 298.15), "K")
-#'     )
-#'   )
-#' # optimize_leaves(leaf_par, enviro_par, bake_par, constants)
+#' # leaf_par <- make_leafpar(constants,
+#' #   replace = list(
+#' #     T_leaf = set_units(c(293.14, 298.15), "K")
+#' #     )
+#' #   )
+#' # optimize_leaves(traits, leaf_par, enviro_par, bake_par, constants)
 #' 
 #' @encoding UTF-8
 #' 
@@ -199,105 +201,107 @@ optimize_leaf <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par,
                           constants, quiet = FALSE, unitless = TRUE) {
   
   # Check traits ----
-  traits %<>% match.arg(c("g_sc", "logit_sr"), TRUE)  
+  traits %<>% 
+    match.arg(c("g_sc", "logit_sr"), TRUE) %>%
+    sort()
 
   # Check carbon costs ----
-  stopifnot(is.list(carbon_costs))
-  stopifnot("H2O" %in% names(carbon_costs))
-  stopifnot(length(carbon_costs$H2O) == 1L)
-  stopifnot(is.numeric(carbon_costs$H2O))
-  if (!quiet & length(carbon_costs) > 1L) {
-    "Only the carbon cost of H2O is currently supported. Other elements will be ignored." %>%
-      crayon::green() %>%
-      message()
-  }
+  check_carbon_costs(carbon_costs, quiet)
   
   # Check parameters ----
-  cs <- constants(pars)
-  lp <- leaf_par(pars)
-  bp <- photosynthesis::bake_par(pars)
-  ep <- enviro_par(pars)
+  constants %<>% constants()
+  leaf_par %<>% leaf_par()
+  bake_par %<>% photosynthesis::bake_par()
+  enviro_par %<>% enviro_par()
   
   # Concatenate parameters ----
-  pars <- c(leaf_par, enviro_par, bake_par, constants)
+  pars <- c(constants, leaf_par, enviro_par, bake_par)
   
   # Find optimum ----
-  soln <- find_optimum(pars, quiet)
+  soln <- find_optimum(g_sc = ("g_sc" %in% traits), 
+                       logit_sr = ("logit_sr" %in% traits), 
+                       carbon_costs, pars, quiet)
   
   # Check results ----
-  if (soln$convergence == 1) {
-    "stats::optim did not converge, NA returned. Inspect parameters carefully." %>%
-      crayon::red() %>%
-      message()
-  }
-  
-  # Put optimized traits in pars to calculate T_leaf, A, and E ----
-  if ("g_sc" %in% traits) {
-    pars$g_sc <- soln$g_sc
-    pars$g_sw <- gc2gw(pars$g_sc, pars$D_c0, pars$D_w0, unitless = TRUE) 
-  }
-  
-  if ("logit_sr" %in% traits) {
-    pars$logit_sr <- soln$logit_sr
-    pars$k_sc <- pars$logit_sr %>%
-      stats::plogis() %>%
-      magrittr::divide_by(1 - .)
-  }
+  check_results(soln)
+  pars$carbon_balance <- -soln$value
+    
+  # Concatenate optimized traits in pars to calculate T_leaf, A, and E ----
+  pars %<>% c_optimized_traits(traits, soln) 
+  unitless_pars <- pars %>% purrr::map_if(function(x) is(x, "units"), drop_units)
   
   # Calculate T_leaf, A, and E ----
-  tl <- tealeaves::tleaf(tealeaves::leaf_par(pars), 
-                         tealeaves::enviro_par(pars),
-                         tealeaves::constants(pars), unitless = TRUE)
-  pars$T_leaf <- set_units(tl$T_leaf, "K")
-  ph <- photosynthesis::photo(photosynthesis::leaf_par(pars),
-                              photosynthesis::enviro_par(pars),
-                              photosynthesis::bake_par(pars),
-                              photosynthesis::constants(pars),
-                              unitless = TRUE)
+  unitless_pars$T_leaf <- unitless_pars %>% 
+    find_tleaf(., . , .) %>%
+    magrittr::use_series("T_leaf")
+  pars$T_leaf <- set_units(unitless_pars$T_leaf, "K")
+
+  ph <- unitless_pars %>% 
+    c(bake(., ., ., unitless = TRUE)) %>%
+    find_A()
+
+  pars$A <- set_units(ph$A, "umol/m^2/s")
+  pars$C_chl <- set_units(ph$C_chl, "Pa")
+
+  eb <- tealeaves::energy_balance(
+    pars$T_leaf, tealeaves::leaf_par(pars), tealeaves::enviro_par(pars),
+    tealeaves::constants(pars), components = TRUE
+  )
+  stopifnot(round(drop_units(eb$energy_balance), 1) == 0)
+  
+  pars %<>% c(eb$components)
+  
+  blp <- bake(photosynthesis::leaf_par(pars), 
+              photosynthesis::bake_par(pars),
+              photosynthesis::constants(pars),
+              unitless = FALSE)
+  pars %<>% c(blp[!(names(blp) %in% names(.))])
   
   # Return ----
-  soln %<>%
-    dplyr::transmute(carbon_balance = -.data$value) %>%
-    dplyr::bind_cols(as.data.frame(
-      photosynthesis::bake(photosynthesis::leaf_par(pars), 
-                           photosynthesis::bake_par(pars),
-                           photosynthesis::constants(pars))
-    )) %>%
-    dplyr::bind_cols(as.data.frame(enviro_par(pars))) %>%
-    dplyr::bind_cols(dplyr::select(tl, .data$E)) %>%
-    dplyr::bind_cols(dplyr::select(ph, .data$C_chl, .data$g_tc, .data$A))
+  keep <- names(pars)[pars %>%
+    names() %>%
+    magrittr::is_in(c(parameter_names("constants"), parameter_names("bake"))) %>%
+    magrittr::not()]
   
-  soln  
-  
+  as.data.frame(pars[sort(keep)])
+
 }
 
-find_optimum <- function(pars, quiet) {
+find_optimum <- function(g_sc, logit_sr, carbon_costs, pars, quiet) {
   
-  pars %<>% purrr::map_if(function(x) is(x, "units"), drop_units)
-  
-  pars %<>% c(photosynthesis::bake(., ., ., TRUE))
+  unitless_pars <- pars %>% 
+    purrr::map_if(function(x) is(x, "units"), drop_units)
+  traits <- c("g_sc", "logit_sr")[c(g_sc, logit_sr)]
   
   # Find traits that maximize carbon gain ----
-  .f <- function(traits, carbon_costs, pars) {
-    
-    if ("g_sc" %in% names(traits)) {
-      pars$g_sc <- traits[["g_sc"]]
-      pars$g_sw <- gc2gw(pars$g_sc, pars$D_c0, pars$D_w0, unitless = TRUE) 
+  .f <- function(traits, g_sc, logit_sr, carbon_costs, upars) {
+
+    if (g_sc) {
+      upars$g_sc <- traits[1]
+      upars$g_sw <- gc2gw(upars$g_sc, upars$D_c0, upars$D_w0, unitless = TRUE)
     }
     
-    if ("logit_sr" %in% names(traits)) {
-      pars$logit_sr <- traits[["logit_sr"]]
-      pars$k_sc <- pars$logit_sr %>%
+    if (logit_sr) {
+      upars$logit_sr <- ifelse(g_sc, traits[2], traits[1])
+      upars$k_sc <- upars$logit_sr %>%
         stats::plogis() %>%
         magrittr::divide_by(1 - .)
     }
     
-    soln <- find_tleaf(leaf_par, enviro_par, constants, quiet, unitless = TRUE)
+    # upars$g_sc <- g_sc
+    # upars$g_sw <- gc2gw(upars$g_sc, upars$D_c0, upars$D_w0, unitless = TRUE)
     
-    find_tleaf(pars, pars, pars) %>%
-      magrittr::use_series("T_leaf") %>%
-      carbon_balance(carbon_costs, pars, quiet = TRUE, unitless = TRUE) %>%
-      magrittr::multiply_by(-1)
+    upars$T_leaf <- find_tleaf(upars, upars, upars)$T_leaf
+    
+    upars %<>%
+      c(bake(., ., ., TRUE) %>%
+          purrr::map_if(function(x) is(x, "units"), drop_units))
+    
+    A <- find_A(upars)$A
+
+    E <- tealeaves::E(upars$T_leaf, upars, unitless = TRUE)
+    
+    -(A - E * 1e6 * carbon_costs$H2O)
     
   }
   
@@ -310,12 +314,14 @@ find_optimum <- function(pars, quiet) {
   
   fit <- tryCatch({
     
-    c(lower, upper) %<-% list(c(g_sc = 0, logit_sr = -10), c(g_sc = 10, logit_sr = 10))
+    c(init, lb, ub) %<-% list(c(g_sc = 3, logit_sr = 0), 
+                              c(g_sc = 0, logit_sr = -10), 
+                              c(g_sc = 10, logit_sr = 10))
     
-    stats::optim(pars[traits], .f, carbon_costs = carbon_costs, pars = pars, 
-                 unitless = TRUE,
+    stats::optim(init[traits], .f, carbon_costs = carbon_costs, 
+                 upars = unitless_pars, g_sc = g_sc, logit_sr = logit_sr,
                  method = ifelse(length(traits) == 1, "Brent", "L-BFGS-B"),
-                 lower = lower[traits], upper = upper[traits])
+                 lower = lb[traits], upper = ub[traits])
     
   }, finally = {
     fit <- list(par = stats::setNames(rep(NA, length(traits)), traits), 
@@ -340,58 +346,26 @@ find_optimum <- function(pars, quiet) {
   
 }
 
-#' Calculate carbon balance
-#' 
-#' @inheritParams optimize_leaves
-#' @param T_leaf Leaf temperature in degree Kelvin with \code{units} dropped
-#' @param pars Concatenated parameters (\code{leaf_par}, \code{enviro_par}, \code{bake_par}, and \code{constants}) with \code{units} dropped
-#' 
-#' @return Value of class \code{numeric} indicating the carbon balance.
-#' 
-#' @details 
-#' 
-#' This function is not intended to be called directly because most checks have been removed for speed in \code{\link{optimize_leaf}}.
-#' 
-#' Currently only carbon a cost of water lost to transpiration is supported. Functions calculate the instantaneous leaf-level carbon gain and water loss per area. In the future, I plan to extend functionality to other resources (e.g. nitrogen) and integrate over time courses.
-#' 
-#' The basic equation is:
-#' 
-#' Carbon Balance = Carbon gain - (Carbon cost of water) Water loss
-#' 
-#' @examples 
-#' library(magrittr)
-#' cs <- make_constants()
-#' lp <- make_leafpar(cs)
-#' bp <- make_bakepar()  
-#' ep <- make_enviropar()
-#' 
-#' T_leaf <- tealeaves::tleaf(lp, ep, cs, unitless = TRUE)$T_leaf
-#' blp <- lp %>% 
-#'   c(T_leaf = T_leaf) %>%
-#'   bake(bp, cs)
-#' carbon_costs <- list(H2O = 0.003)
-#' pars <- c(cs, lp[!(names(lp) %in% names(blp))], blp, ep) %>%
-#'   purrr::map_if(function(x) is(x, "units"), drop_units)
-#' T_leaf %<>% drop_units()
-#' 
-#' # everything must be unitless
-#' # pars must already be baked
-#' carbon_balance(T_leaf, carbon_costs, pars)
-#' 
-#' @export
-
-carbon_balance <- function(T_leaf, carbon_costs, pars) {
+c_optimized_traits <- function(pars, traits, soln) {
   
-  # Carbon gain ----
-  C_gain <- find_A(pars)$A
+  if ("g_sc" %in% traits) {
+    pars$g_sc <- soln$g_sc
+    pars$g_sw <- gc2gw(pars$g_sc, pars$D_c0, pars$D_w0, unitless = TRUE) 
+  }
   
-  # Carbon costs ----
-  tl <- tealeaves::energy_balance(T_leaf, pars, pars, pars, quiet = TRUE, 
-                                  components = TRUE, unitless = TRUE, check = FALSE)
-  C_cost <- carbon_costs$H2O * drop_units(tl$components$E) * 1e6
+  if ("logit_sr" %in% traits) {
+    pars$logit_sr <- soln$logit_sr
+    pars$k_sc <- pars$logit_sr %>%
+      stats::plogis() %>%
+      magrittr::divide_by(1 - .)
+  }
   
-  # Carbon balance ----
-  C_gain - C_cost
+  pars$g_sc %<>% set_units("umol/m^2/s/Pa")
+  pars$g_sw %<>% set_units("umol/m^2/s/Pa")
+  pars$logit_sr %<>% set_units()
+  pars$k_sc %<>% set_units()
+  
+  pars
   
 }
 

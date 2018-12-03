@@ -91,27 +91,29 @@ ppfd2sun <- function(PPFD, f_par, E_q) {
 #' D_c <- set_units(1.29e-05, "m^2/s")
 #' D_w <- set_units(2.12e-05, "m^2/s")
 #' g_c <- set_units(3, "umol/m^2/s/Pa")
-#' g_w <- gc2gw(g_c, D_c, D_w)
+#' g_w <- gc2gw(g_c, D_c, D_w, unitless = FALSE)
 #' g_w
 #' 
-#' gw2gc(g_w, D_c, D_w)
+#' gw2gc(g_w, D_c, D_w, unitles = FALSE)
 #' 
 #' @export
 #'
 
 gw2gc <- function(g_w, D_c, D_w, unitless) {
   
-  if (!unitless) {
+  if (unitless) {
+    if (is(g_w, "units")) g_w %<>% drop_units()
+    if (is(D_c, "units")) D_c %<>% drop_units()
+    if (is(D_w, "units")) D_w %<>% drop_units()
+    g_c <- g_w * D_c / D_w
+    return(g_c)
+  } else {
     g_w %<>% set_units("umol/m^2/s/Pa")
     D_c %<>% set_units("m^2/s")
     D_w %<>% set_units("m^2/s")
+    g_c <- g_w * D_c / D_w
+    return(g_c)
   }
-  
-  g_w %>% magrittr::multiply_by(D_c / D_w) 
-  
-  if (!unitless) g_w %<>% set_units("umol/m^2/s/Pa")
-  
-  g_w
   
 }
 
@@ -126,16 +128,18 @@ gw2gc <- function(g_w, D_c, D_w, unitless) {
 
 gc2gw <- function(g_c, D_c, D_w, unitless) {
   
-  if (!unitless) {
+  if (unitless) {
+    if (is(g_c, "units")) g_c %<>% drop_units()
+    if (is(D_c, "units")) D_c %<>% drop_units()
+    if (is(D_w, "units")) D_w %<>% drop_units()
+    g_w <- g_c * D_w / D_c
+    return(g_w)
+  } else {
     g_c %<>% set_units("umol/m^2/s/Pa")
     D_c %<>% set_units("m^2/s")
     D_w %<>% set_units("m^2/s")
+    g_w <- g_c * D_w / D_c
+    return(g_w)
   }
-  
-  g_c %>% magrittr::multiply_by(D_w / D_c) 
-  
-  if (!unitless) g_c %<>% set_units("umol/m^2/s/Pa")
-  
-  g_c
   
 }

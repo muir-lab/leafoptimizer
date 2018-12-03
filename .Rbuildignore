@@ -3,3 +3,4 @@
 ^\.Rproj\.user$
 ^R/issues\.R$
 CONDUCT.md
+R/deprecated.R

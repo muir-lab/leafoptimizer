@@ -38,9 +38,9 @@ Diffusive conductance to CO2 is generally about ~1.6x that of H2O because of the
 D_c <- set_units(1.29e-05, "m^2/s")
 D_w <- set_units(2.12e-05, "m^2/s")
 g_c <- set_units(3, "umol/m^2/s/Pa")
-g_w <- gc2gw(g_c, D_c, D_w)
+g_w <- gc2gw(g_c, D_c, D_w, unitless = FALSE)
 g_w
 
-gw2gc(g_w, D_c, D_w)
+gw2gc(g_w, D_c, D_w, unitles = FALSE)
 
 }
