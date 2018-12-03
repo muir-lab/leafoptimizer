@@ -73,7 +73,7 @@ ppfd2sun <- function(PPFD, f_par, E_q) {
 
 #' Convert g_c (\eqn{\mu}mol CO2/m^2/s/Pa) to g_w (\eqn{\mu}mol H2O /m^2/s/Pa)
 #'
-#' @inheritParams optimize_leaves
+#' @inheritParams bake
 #' @param g_w conductance to water vapor in units (\eqn{\mu}mol H2O / (m^2 s Pa)) of class \code{units}.
 #' @param D_c diffusion coefficient for CO2 in air in units of m^2/s of call \code{units}
 #' @param D_w diffusion coefficient for H2O in air in units of m^2/s of call \code{units}

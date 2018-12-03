@@ -14,7 +14,7 @@ bake(leaf_par, bake_par, constants, unitless = FALSE,
 
 \item{constants}{A list of physical constants inheriting class \code{constants}. This can be generated using the \code{make_constants} function.}
 
-\item{unitless}{Logical. Should \code{units} be set? The function is faster when FALSE, but input must be in correct units or else results will be incorrect without any warning.}
+\item{unitless}{Logical. Should units be set? The function is faster when FALSE, but input must be in correct units or else results will be incorrect without any warning.}
 
 \item{check}{Logical. Should all parameter sets be checked? TRUE is safer, but FALSE is faster.}
 }

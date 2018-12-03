@@ -18,8 +18,6 @@
 #' 
 #' @param quiet Logical. Should messages be displayed?
 #' 
-#' @param unitless Logical. Should \code{units} be set? The function is faster when FALSE, but input must be in correct units or else results will be incorrect without any warning.
-#' 
 #' @return 
 #' A data.frame with the following \code{units} columns \cr
 #' 
@@ -86,17 +84,17 @@
 #' ep <- make_enviropar()
 #' bp <- make_bakepar()
 #' traits <- "g_sc"
-#' carbon_costs <- list(H2O = 0.003)
+#' carbon_costs <- list(H2O = 0.004)
 #' optimize_leaf("g_sc", carbon_costs, lp, ep, bp, cs)
 #' 
 #' # Multiple parameter sets with 'photosynthesis'
 #' 
-#' # leaf_par <- make_leafpar(constants,
-#' #   replace = list(
-#' #     T_leaf = set_units(c(293.14, 298.15), "K")
-#' #     )
-#' #   )
-#' # optimize_leaves(traits, leaf_par, enviro_par, bake_par, constants)
+#' ep <- make_enviropar(
+#'   replace = list(
+#'     T_air = set_units(c(293.14, 298.15), "K")
+#'   )
+#' )
+#' optimize_leaves(traits, carbon_costs, lp, ep, bp, cs)
 #' 
 #' @encoding UTF-8
 #' 
@@ -104,8 +102,13 @@
 #' 
 
 optimize_leaves <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par, 
-                            constants, progress = TRUE, quiet = FALSE,
-                            unitless = TRUE) {
+                            constants, progress = TRUE, quiet = FALSE) {
+  
+  # Check inputs ----
+  leaf_par %<>% leaf_par()
+  enviro_par %<>% enviro_par()
+  bake_par %<>% photosynthesis::bake_par()
+  constants %<>% constants()
   
   # Capture units ----
   pars <- c(leaf_par, enviro_par)
@@ -113,6 +116,19 @@ optimize_leaves <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par
     magrittr::set_names(names(pars))
   
   # Make parameter sets ----
+  pars %<>% make_parameter_sets(constants, par_units)
+  
+  # Optimize ----
+  soln <- find_optima(traits, carbon_costs, pars, bake_par, constants, 
+                      par_units, progress, quiet)
+  
+  # Return ----
+  soln
+  
+}
+
+make_parameter_sets <- function(pars, constants, par_units) {
+  
   pars %<>%
     names() %>%
     glue::glue("{x} = pars${x}", x = .) %>%
@@ -129,11 +145,11 @@ optimize_leaves <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par
       )),
       g_sw1 = drop_units(gc2gw(
         set_units(.data$g_sc, par_units[["g_sc"]], mode = "standard"),
-        constants$D_c0, constants$D_w0
+        constants$D_c0, constants$D_w0, unitless = FALSE
       )),
       g_uw1 = drop_units(gc2gw(
         set_units(.data$g_uc, par_units[["g_uc"]], mode = "standard"),
-        constants$D_c0, constants$D_w0
+        constants$D_c0, constants$D_w0, unitless = FALSE
       ))
     ) %>%
     dplyr::filter(round(.data$PPFD, 6) == round(.data$PPFD1, 6),
@@ -150,7 +166,13 @@ optimize_leaves <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par
     parse(text = .) %>%
     eval()
   
-  # Optimize ----
+  pars
+  
+}
+
+find_optima <- function(traits, carbon_costs, pars, bake_par, constants, 
+                        par_units, progress, quiet) {
+  
   if (!quiet) {
     glue::glue("\nOptimizing leaf trait{s1} from {n} parameter set{s2} ...", 
                s1 = ifelse(length(traits) > 1, "s", ""), n = length(pars), 
@@ -166,7 +188,7 @@ optimize_leaves <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par
       purrr::map_dfr(~{
         
         ret <- optimize_leaf(traits, carbon_costs, leaf_par(.x), enviro_par(.x), 
-                             bake_par, constants, quiet = TRUE, unitless = unitless)
+                             bake_par, constants, quiet = TRUE)
         if (progress) pb$tick()$print()
         ret
         
@@ -187,7 +209,6 @@ optimize_leaves <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par
     parse(text = .) %>%
     eval()
   
-  # Return ----
   soln
   
 }
@@ -198,7 +219,7 @@ optimize_leaves <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par
 #' @export
 
 optimize_leaf <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par, 
-                          constants, quiet = FALSE, unitless = TRUE) {
+                          constants, quiet = FALSE) {
   
   # Check traits ----
   traits %<>% 
@@ -287,9 +308,6 @@ find_optimum <- function(g_sc, logit_sr, carbon_costs, pars, quiet) {
         stats::plogis() %>%
         magrittr::divide_by(1 - .)
     }
-    
-    # upars$g_sc <- g_sc
-    # upars$g_sw <- gc2gw(upars$g_sc, upars$D_c0, upars$D_w0, unitless = TRUE)
     
     upars$T_leaf <- find_tleaf(upars, upars, upars)$T_leaf
     

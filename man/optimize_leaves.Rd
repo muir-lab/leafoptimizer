@@ -8,10 +8,10 @@
 \title{Optimize leaf photosynthesis}
 \usage{
 optimize_leaves(traits, carbon_costs, leaf_par, enviro_par, bake_par,
-  constants, progress = TRUE, quiet = FALSE, unitless = TRUE)
+  constants, progress = TRUE, quiet = FALSE)
 
 optimize_leaf(traits, carbon_costs, leaf_par, enviro_par, bake_par,
-  constants, quiet = FALSE, unitless = TRUE)
+  constants, quiet = FALSE)
 
 simple_optimize_leaf(traits, carbon_costs, leaf_par, enviro_par, bake_par,
   constants)
@@ -32,8 +32,6 @@ simple_optimize_leaf(traits, carbon_costs, leaf_par, enviro_par, bake_par,
 \item{progress}{Logical. Should a progress bar be displayed?}
 
 \item{quiet}{Logical. Should messages be displayed?}
-
-\item{unitless}{Logical. Should \code{units} be set? The function is faster when FALSE, but input must be in correct units or else results will be incorrect without any warning.}
 }
 \value{
 A data.frame with the following \code{units} columns \cr
@@ -107,16 +105,16 @@ lp <- make_leafpar(cs)
 ep <- make_enviropar()
 bp <- make_bakepar()
 traits <- "g_sc"
-carbon_costs <- list(H2O = 0.003)
+carbon_costs <- list(H2O = 0.004)
 optimize_leaf("g_sc", carbon_costs, lp, ep, bp, cs)
 
 # Multiple parameter sets with 'photosynthesis'
 
-# leaf_par <- make_leafpar(constants,
-#   replace = list(
-#     T_leaf = set_units(c(293.14, 298.15), "K")
-#     )
-#   )
-# optimize_leaves(traits, leaf_par, enviro_par, bake_par, constants)
+ep <- make_enviropar(
+  replace = list(
+    T_air = set_units(c(293.14, 298.15), "K")
+  )
+)
+optimize_leaves(traits, carbon_costs, lp, ep, bp, cs)
 
 }
