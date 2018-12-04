@@ -6,6 +6,8 @@ Authors@R: person("Chris", "Muir", role = c("aut", "cre"), email = "cdmuir@hawai
 Depends: R (>= 3.5.0), units (>= 0.6.0)
 Imports: crayon (>= 1.3.4),
          dplyr (>= 0.7.0),
+         furrr (>= 0.1.0),
+         future (>= 1.10.0),
          glue (>= 1.3.0),
          magrittr (>= 1.5.0),
          methods (>= 3.5.0),
@@ -28,5 +30,5 @@ Description: A (one paragraph) description of what
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 6.1.0
+RoxygenNote: 6.1.1
 VignetteBuilder: knitr
