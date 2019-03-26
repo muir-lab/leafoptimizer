@@ -8,10 +8,11 @@
 \title{Optimize leaf photosynthesis}
 \usage{
 optimize_leaves(traits, carbon_costs, leaf_par, enviro_par, bake_par,
-  constants, progress = TRUE, quiet = FALSE, parallel = FALSE)
+  constants, n_init = 1L, progress = TRUE, quiet = FALSE,
+  parallel = FALSE)
 
 optimize_leaf(traits, carbon_costs, leaf_par, enviro_par, bake_par,
-  constants, quiet = FALSE)
+  constants, n_init, quiet = FALSE)
 
 simple_optimize_leaf(traits, carbon_costs, leaf_par, enviro_par, bake_par,
   constants)
@@ -19,7 +20,7 @@ simple_optimize_leaf(traits, carbon_costs, leaf_par, enviro_par, bake_par,
 \arguments{
 \item{traits}{A vector of one or more character strings indicating which trait(s) to optimize. Stomatal conductance (\code{g_sc}) and stomatal ratio (\code{logit_sr}) are currently supported.}
 
-\item{carbon_costs}{A named list of resources with their costs in terms of carbon (e.g. mol C / mol H2O). Currently only H2O is supported. See details below.}
+\item{carbon_costs}{A named list of resources with their costs in terms of carbon (e.g. mol C / mol H2O). Currently only H2O and SR are supported. See details below.}
 
 \item{leaf_par}{A list of leaf parameters inheriting class \code{leaf_par}. This can be generated using the \code{make_leafpar} function.}
 
@@ -28,6 +29,8 @@ simple_optimize_leaf(traits, carbon_costs, leaf_par, enviro_par, bake_par,
 \item{bake_par}{A list of temperature response parameters inheriting class \code{bake_par}. This can be generated using the \code{make_bakepar} function.}
 
 \item{constants}{A list of physical constants inheriting class \code{constants}. This can be generated using the \code{make_constants} function.}
+
+\item{n_init}{Integer. Number of initial values for each trait to try during optimization. If there are multiple traits, these initial values are crossed. For example, if \code{n_init = 3}, the total number of intitial values sets is 3, 9, 27 for 1, 2, 3 traits, respectively. This significantly increases the time, but may be important if the surface is rugged. Default is 1L.}
 
 \item{progress}{Logical. Should a progress bar be displayed?}
 
@@ -107,8 +110,8 @@ lp <- make_leafpar(cs)
 ep <- make_enviropar()
 bp <- make_bakepar()
 traits <- "g_sc"
-carbon_costs <- list(H2O = 0.004)
-optimize_leaf("g_sc", carbon_costs, lp, ep, bp, cs)
+carbon_costs <- list(H2O = 1000, SR = 0)
+optimize_leaf("g_sc", carbon_costs, lp, ep, bp, cs, n_init = 1L)
 
 # Multiple parameter sets with 'photosynthesis'
 
@@ -117,6 +120,6 @@ ep <- make_enviropar(
     T_air = set_units(c(293.14, 298.15), "K")
   )
 )
-optimize_leaves(traits, carbon_costs, lp, ep, bp, cs)
+optimize_leaves(traits, carbon_costs, lp, ep, bp, cs, n_init = 1L)
 
 }

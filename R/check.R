@@ -1,11 +1,13 @@
 check_carbon_costs <- function(carbon_costs, quiet) {
   
   stopifnot(is.list(carbon_costs))
-  stopifnot("H2O" %in% names(carbon_costs))
+  stopifnot(c("H2O", "SR") %in% names(carbon_costs))
   stopifnot(length(carbon_costs$H2O) == 1L)
+  stopifnot(length(carbon_costs$SR) == 1L)
   stopifnot(is.numeric(carbon_costs$H2O))
-  if (!quiet & length(carbon_costs) > 1L) {
-    "Only the carbon cost of H2O is currently supported. Other elements will be ignored." %>%
+  stopifnot(is.numeric(carbon_costs$SR))
+  if (!quiet & length(carbon_costs) > 2L) {
+    "Only the carbon cost of H2O and SR currently supported. Other elements will be ignored." %>%
       crayon::green() %>%
       message()
   }

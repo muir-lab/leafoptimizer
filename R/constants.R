@@ -25,8 +25,6 @@ constants <- function(.x) {
       stop()
   }
   
-  stopifnot(all(nms %in% names(.x)))
-  
   repeated_tab <- plyr::count(names(.x)) %>%
     dplyr::filter(.data$freq > 1)
   if (nrow(repeated_tab) > 0) {

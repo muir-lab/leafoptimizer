@@ -9,7 +9,7 @@ test_that("find_tleaf calculated leaf temperature correctly", {
   ep <- make_enviropar()
   
   traits <- "g_sc"
-  carbon_costs <- list(H2O = 0.003)
+  carbon_costs <- list(H2O = 333.3)
   
   cs %<>% constants()
   lp %<>% leaf_par()

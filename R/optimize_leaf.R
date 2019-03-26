@@ -4,13 +4,15 @@
 #' 
 #' @param traits A vector of one or more character strings indicating which trait(s) to optimize. Stomatal conductance (\code{g_sc}) and stomatal ratio (\code{logit_sr}) are currently supported.
 #' 
-#' @param carbon_costs A named list of resources with their costs in terms of carbon (e.g. mol C / mol H2O). Currently only H2O is supported. See details below.
+#' @param carbon_costs A named list of resources with their costs in terms of carbon (e.g. mol C / mol H2O). Currently only H2O and SR are supported. See details below.
 #' 
 #' @param leaf_par A list of leaf parameters inheriting class \code{leaf_par}. This can be generated using the \code{make_leafpar} function.
 #' 
 #' @param enviro_par A list of environmental parameters inheriting class \code{enviro_par}. This can be generated using the \code{make_enviropar} function.
 #' 
 #' @param bake_par A list of temperature response parameters inheriting class \code{bake_par}. This can be generated using the \code{make_bakepar} function.
+#' 
+#' @param n_init Integer. Number of initial values for each trait to try during optimization. If there are multiple traits, these initial values are crossed. For example, if \code{n_init = 3}, the total number of intitial values sets is 3, 9, 27 for 1, 2, 3 traits, respectively. This significantly increases the time, but may be important if the surface is rugged. Default is 1L.
 #' 
 #' @param constants A list of physical constants inheriting class \code{constants}. This can be generated using the \code{make_constants} function.
 #' 
@@ -86,8 +88,8 @@
 #' ep <- make_enviropar()
 #' bp <- make_bakepar()
 #' traits <- "g_sc"
-#' carbon_costs <- list(H2O = 0.004)
-#' optimize_leaf("g_sc", carbon_costs, lp, ep, bp, cs)
+#' carbon_costs <- list(H2O = 1000, SR = 0)
+#' optimize_leaf("g_sc", carbon_costs, lp, ep, bp, cs, n_init = 1L)
 #' 
 #' # Multiple parameter sets with 'photosynthesis'
 #' 
@@ -96,7 +98,7 @@
 #'     T_air = set_units(c(293.14, 298.15), "K")
 #'   )
 #' )
-#' optimize_leaves(traits, carbon_costs, lp, ep, bp, cs)
+#' optimize_leaves(traits, carbon_costs, lp, ep, bp, cs, n_init = 1L)
 #' 
 #' @encoding UTF-8
 #' 
@@ -104,7 +106,7 @@
 #' 
 
 optimize_leaves <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par, 
-                            constants, progress = TRUE, quiet = FALSE, 
+                            constants, n_init = 1L, progress = TRUE, quiet = FALSE, 
                             parallel = FALSE) {
   
   # Check inputs ----
@@ -123,7 +125,7 @@ optimize_leaves <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par
   
   # Optimize ----
   soln <- find_optima(traits, carbon_costs, pars, bake_par, constants, 
-                      par_units, progress, quiet, parallel)
+                      par_units, n_init, progress, quiet, parallel)
   
   # Return ----
   soln
@@ -174,7 +176,7 @@ make_parameter_sets <- function(pars, constants, par_units) {
 }
 
 find_optima <- function(traits, carbon_costs, pars, bake_par, constants, 
-                        par_units, progress, quiet, parallel) {
+                        par_units, n_init, progress, quiet, parallel) {
   
   if (!quiet) {
     glue::glue("\nOptimizing leaf trait{s1} from {n} parameter set{s2} ...", 
@@ -193,7 +195,7 @@ find_optima <- function(traits, carbon_costs, pars, bake_par, constants,
       furrr::future_map_dfr(~{
         
         ret <- optimize_leaf(traits, carbon_costs, leaf_par(.x), enviro_par(.x), 
-                             bake_par, constants, quiet = TRUE)
+                             bake_par, constants, n_init, quiet = TRUE)
         if (progress & !parallel) pb$tick()$print()
         ret
         
@@ -224,11 +226,11 @@ find_optima <- function(traits, carbon_costs, pars, bake_par, constants,
 #' @export
 
 optimize_leaf <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par, 
-                          constants, quiet = FALSE) {
+                          constants, n_init, quiet = FALSE) {
   
   # Check traits ----
   traits %<>% 
-    match.arg(c("g_sc", "logit_sr"), TRUE) %>%
+    match.arg(c("g_sc", "leafsize", "logit_sr"), TRUE) %>%
     sort()
 
   # Check carbon costs ----
@@ -240,13 +242,21 @@ optimize_leaf <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par,
   bake_par %<>% photosynthesis::bake_par()
   enviro_par %<>% enviro_par()
   
+  # Check n_init
+  if (!is.integer(n_init) | length(n_init) > 1L) {
+    n_init %<>% 
+      dplyr::first() %>% 
+      as.integer()
+  }
+  
   # Concatenate parameters ----
   pars <- c(constants, leaf_par, enviro_par, bake_par)
   
   # Find optimum ----
   soln <- find_optimum(g_sc = ("g_sc" %in% traits), 
+                       leafsize = ("leafsize" %in% traits), 
                        logit_sr = ("logit_sr" %in% traits), 
-                       carbon_costs, pars, quiet)
+                       carbon_costs, pars, n_init, quiet)
   
   # Check results ----
   check_results(soln)
@@ -293,22 +303,27 @@ optimize_leaf <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par,
 
 }
 
-find_optimum <- function(g_sc, logit_sr, carbon_costs, pars, quiet) {
+find_optimum <- function(g_sc, leafsize, logit_sr, carbon_costs, pars, n_init,
+                         quiet) {
   
   unitless_pars <- pars %>% 
     purrr::map_if(function(x) is(x, "units"), drop_units)
-  traits <- c("g_sc", "logit_sr")[c(g_sc, logit_sr)]
+  traits <- c("g_sc", "leafsize", "logit_sr")[c(g_sc, leafsize, logit_sr)]
   
   # Find traits that maximize carbon gain ----
-  .f <- function(traits, g_sc, logit_sr, carbon_costs, upars) {
+  .f <- function(traits, g_sc, leafsize, logit_sr, carbon_costs, upars) {
 
     if (g_sc) {
       upars$g_sc <- traits[1]
       upars$g_sw <- gc2gw(upars$g_sc, upars$D_c0, upars$D_w0, unitless = TRUE)
     }
     
+    if (leafsize) {
+      upars$leafsize <- dplyr::if_else(g_sc, traits[2], traits[1])
+    }
+    
     if (logit_sr) {
-      upars$logit_sr <- ifelse(g_sc, traits[2], traits[1])
+      upars$logit_sr <- dplyr::last(traits)
       upars$k_sc <- upars$logit_sr %>%
         stats::plogis() %>%
         magrittr::divide_by(1 - .)
@@ -324,9 +339,21 @@ find_optimum <- function(g_sc, logit_sr, carbon_costs, pars, quiet) {
 
     E <- tealeaves::E(upars$T_leaf, upars, unitless = TRUE)
     
-    -(A - E * 1e6 * carbon_costs$H2O)
+    upars$g_sw * stats::plogis(upars$logit_sr) * carbon_costs$SR + 
+      E * 1e6 - carbon_costs$H2O * A
     
   }
+  
+  # Find initial values ----
+  init <- tidyr::crossing(
+    g_sc = seq(0, 10, length.out = n_init + 2L)[-c(1, n_init + 2L)], 
+    leafsize = seq(0.0005, 0.4, length.out = n_init + 2L)[-c(1, n_init + 2L)],
+    logit_sr = seq(-10, 10, length.out = n_init + 2L)[-c(1, n_init + 2L)]
+  ) %>%
+    dplyr::select(traits) %>%
+    unique() %>%
+    as.matrix()
+  stopifnot(nrow(init) == n_init ^ length(traits))
   
   if (!quiet) {
     glue::glue("\nOptimizing leaf trait{s} ...",
@@ -334,38 +361,76 @@ find_optimum <- function(g_sc, logit_sr, carbon_costs, pars, quiet) {
       crayon::green() %>%
       message(appendLF = FALSE)
   }
+
+  # Parameter bounds ----
+  # Based on Wright et al 2017, leaf size varies from 0.01 cm ^ 2 to 5000 cm ^ 2
+  # so minimum characteristic leaf dimension (radius of largest circle) is approximately:
+  # sqrt(0.01 / pi) / 100 = 0.0005
+  # sqrt(5000 / pi) / 100 = 0.4
+  c(lb, ub) %<-% list(
+    #as.matrix(data.frame(g_sc = 1, leafsize = c(0.0005, 0.02, 0.4), logit_sr = 0)), 
+    c(g_sc = 0, leafsize = 0.0005, logit_sr = -10), 
+    c(g_sc = 10, leafsize = 0.4, logit_sr = 10)
+  )
   
-  fit <- tryCatch({
+  # Minimize .f() ----
+  if (length(traits) == 1L) {
     
-    c(init, lb, ub) %<-% list(c(g_sc = 3, logit_sr = 0), 
-                              c(g_sc = 0, logit_sr = -10), 
-                              c(g_sc = 10, logit_sr = 10))
+    print(init)
+    soln <- purrr::map_dfr(init, function(.x, ...) {
+      
+      fit <- stats::optim(.x, .f, ...)
+      
+      soln <- fit$par %>%
+        as.data.frame() %>%
+        t() %>%
+        as.data.frame() %>%
+        magrittr::set_colnames(traits) %>%
+        dplyr::mutate(value = fit$value, convergence = fit$convergence)
+      
+      soln
+      
+    }, carbon_costs = carbon_costs, upars = unitless_pars, g_sc = g_sc, 
+    leafsize = leafsize, logit_sr = logit_sr, method = "Brent", 
+    lower = lb[traits], upper = ub[traits]
+    )
     
-    stats::optim(init[traits], .f, carbon_costs = carbon_costs, 
-                 upars = unitless_pars, g_sc = g_sc, logit_sr = logit_sr,
-                 method = ifelse(length(traits) == 1, "Brent", "L-BFGS-B"),
-                 lower = lb[traits], upper = ub[traits])
+    print(soln)
     
-  }, finally = {
-    fit <- list(par = stats::setNames(rep(NA, length(traits)), traits), 
-                value = NA, convergence = 1)
-  })
-  
-  soln <- fit$par %>% 
-    as.data.frame() %>%
-    t() %>%
-    as.data.frame() %>%
-    magrittr::set_colnames(traits) %>%
-    dplyr::mutate(value = fit$value, 
-                  convergence = fit$convergence)
-  
+    soln %<>% dplyr::top_n(-1, .data$value)
+    
+  } else {
+    
+    print("multistart")
+    print(init)
+    
+    soln <- purrr::map_dfr(1:nrow(init), function(.x, ...) {
+      
+      fit <- optimx::optimx(init[.x,], .f, ...)
+      
+      soln <- fit %>%
+        dplyr::filter(.data$value == min(.data$value)) %>%
+        dplyr::select(c(traits, "value", convergence = "convcode"))
+      
+      soln
+      
+    }, carbon_costs = carbon_costs,  upars = unitless_pars, 
+    g_sc = g_sc, leafsize = leafsize, logit_sr = logit_sr, 
+    method = "nlm", lower = lb[traits], upper = ub[traits]
+    )
+    
+    soln %<>% dplyr::top_n(-1, .data$value)
+    
+  }
+    
   if (!quiet) {
     " done" %>%
       crayon::green() %>%
       message()
   }
   
-  soln
+  print(soln)
+  soln[1, ]
   
 }
 
@@ -374,6 +439,10 @@ c_optimized_traits <- function(pars, traits, soln) {
   if ("g_sc" %in% traits) {
     pars$g_sc <- soln$g_sc
     pars$g_sw <- gc2gw(pars$g_sc, pars$D_c0, pars$D_w0, unitless = TRUE) 
+  }
+  
+  if ("leafsize" %in% traits) {
+    pars$leafsize <- soln$leafsize
   }
   
   if ("logit_sr" %in% traits) {
@@ -385,6 +454,7 @@ c_optimized_traits <- function(pars, traits, soln) {
   
   pars$g_sc %<>% set_units("umol/m^2/s/Pa")
   pars$g_sw %<>% set_units("umol/m^2/s/Pa")
+  pars$leafsize %<>% set_units("m")
   pars$logit_sr %<>% set_units()
   pars$k_sc %<>% set_units()
   
