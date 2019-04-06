@@ -329,13 +329,14 @@ find_optimum <- function(g_sc, leafsize, logit_sr, carbon_costs, pars, n_init,
         magrittr::divide_by(1 - .)
     }
     
-    upars$T_leaf <- find_tleaf(upars, upars, upars)$T_leaf
+    upars$T_leaf <- tealeaves:::find_tleaf(upars, upars, upars, quiet = TRUE,
+                                           unitless = TRUE)$T_leaf
     
     upars %<>%
       c(bake(., ., ., TRUE) %>%
           purrr::map_if(function(x) is(x, "units"), drop_units))
     
-    A <- find_A(upars)$A
+    A <- photosynthesis:::find_A(upars, quiet = TRUE)$A
 
     E <- tealeaves::E(upars$T_leaf, upars, unitless = TRUE)
     
@@ -401,8 +402,8 @@ find_optimum <- function(g_sc, leafsize, logit_sr, carbon_costs, pars, n_init,
     
   } else {
     
-    print("multistart")
-    print(init)
+    # print("\nmultistart")
+    # print(init)
     
     soln <- purrr::map_dfr(1:nrow(init), function(.x, ...) {
       
