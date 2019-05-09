@@ -12,10 +12,10 @@
 
 enviro_par <- function(.x) {
   
+  checkmate::assert_list(.x)
+  
   which <- "enviro"
   nms <- parameter_names(which)
-  
-  stopifnot(is.list(.x))
   
   if (!all(nms %in% names(.x))) {
     nms[!(nms %in% names(.x))] %>%
@@ -36,20 +36,6 @@ enviro_par <- function(.x) {
   }
   
   .x %<>% magrittr::extract(nms)
-  
-  # Set units ----
-  .x$E_q %<>% set_units("kJ/mol")
-  .x$f_par %<>% set_units()
-  
-  # Check units ----
-  stopifnot(.x$E_q >= set_units(0, "kJ/mol"))
-  stopifnot(.x$f_par >= set_units(0) & .x$f_par <= set_units(1))
-  
-  tl_enviropar <- tealeaves::enviro_par(.x)
-  ph_enviropar <- photosynthesis::enviro_par(.x)
-  shared_enviropar <- intersect(names(tl_enviropar), names(ph_enviropar))
-  stopifnot(identical(tl_enviropar[shared_enviropar], 
-                      ph_enviropar[shared_enviropar]))
   
   structure(.x, class = c(stringr::str_c(which, "_par"), "list"))
   

@@ -10,10 +10,6 @@ combine_defaults(tl_pars, ph_pars, default_to, quiet)
 \item{tl_pars}{List of {tealeaves} parameters.}
 
 \item{ph_pars}{List of {photosynthesis} parameters.}
-
-\item{default_to}{A character string, either 'photosynthesis' or 'tealeaves', to indicate which package's default parameter to use when they conflict. Default to 'photosynthesis'.}
-
-\item{quiet}{Logical. Should messages about parameters be displayed?}
 }
 \description{
 Combine default parameters

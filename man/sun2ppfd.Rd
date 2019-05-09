@@ -16,7 +16,7 @@ ppfd2sun(PPFD, f_par, E_q)
 
 \item{E_q}{energy per mole quanta. Value in kJ/mol of class \code{units}.}
 
-\item{PPFD}{hotosynthetic photon flux density in \eqn{\mu}mol quanta / (m^2 s) of class \code{units}.}
+\item{PPFD}{Photosynthetic photon flux density in \eqn{\mu}mol quanta / (m^2 s) of class \code{units}.}
 }
 \value{
 Value with units \eqn{\mu}mol / (m^2 s) of class \code{units}.

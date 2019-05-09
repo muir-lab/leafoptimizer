@@ -2,8 +2,6 @@
 #'
 #' @param constants A list of physical constants. This can be generated using the \code{make_constants} function. This is needed to ensure that CO2 and H2O conductances are internally consistent with each other.
 #' @param replace A named list of parameters to replace defaults. If \code{NULL}, defaults will be used.
-#' @param default_to A character string, either 'photosynthesis' or 'tealeaves', to indicate which package's default parameter to use when they conflict. Default to 'photosynthesis'.
-#' @param quiet Logical. Should messages about parameters be displayed?
 #' 
 #' @name make_parameters
 #' 
@@ -59,6 +57,8 @@ NULL
 #' \tabular{lllll}{
 #' \emph{Symbol} \tab \emph{R} \tab \emph{Description} \tab \emph{Units} \tab \emph{Default}\cr
 #' \eqn{C_\mathrm{air}}{C_air} \tab \code{C_air} \tab atmospheric CO2 concentration \tab Pa \tab 41 \cr
+#' \eqn{E_q} \tab \code{E_q} \tab energy per mole quanta \tab kJ / mol\eqn{^2} \tab 220 \cr
+#' \eqn{f_\mathrm{PAR}}{f_PAR} \tab \code{f_par} \tab fraction of \eqn{S_\mathrm{sw}}{S_sw} that is photosynthetically active radiation (PAR) \tab none \tab 0.5 \cr
 #' \eqn{O} \tab \code{O} \tab atmospheric O2 concentration \tab kPa \tab 21.27565 \cr
 #' \eqn{P} \tab \code{P} \tab atmospheric pressure \tab kPa \tab 101.3246 \cr
 #' PPFD \tab \code{PPFD} \tab photosynthetic photon flux density \tab \eqn{\mu}mol quanta / (m^2 s) \tab 1500 \cr
@@ -103,6 +103,8 @@ NULL
 #' Buckley TN and Diaz-Espejo A. 2015. Partitioning changes in photosynthetic rate into contributions from different variables. Plant, Cell & Environment 38: 1200-11.
 #' 
 #' @examples 
+#' library(leafoptimizer)
+#' 
 #' constants <- make_constants()
 #' leaf_par <- make_leafpar(constants)
 #' enviro_par <- make_enviropar()
@@ -117,57 +119,28 @@ NULL
 #' 
 #' @export
 
-make_leafpar <- function(constants, replace = NULL, 
-                         default_to = "photosynthesis", quiet = FALSE) {
+make_leafpar <- function(replace = NULL) {
   
-  constants %<>% constants()
+  checkmate::assert_list(replace, null.ok = TRUE)
   
-  default_to %<>% match.arg(c("photosynthesis", "tealeaves"))
+  # Stop and warn if g_sw, g_uw, or logit_sr is in replace ----
+  if (!is.null(replace$g_sw)) {
+    stop("`g_sw` not allowed in replace. Use `g_sc` for stomatal conductance parameters instead.")
+  }
+  if (!is.null(replace$g_uw)) {
+    stop("`g_uw` not allowed in replace. Use `g_uc` for cuticular conductance parameters instead.")
+  }
+  if (!is.null(replace$logit_sr)) {
+    stop("`logit_sr` not allowed in replace. Use `k_sc` for stomatal ratio parameters instead.")
+  }
   
-  # Combine defaults -----
-  tl_leafpar <- tealeaves::make_leafpar()
-  ph_leafpar <- photosynthesis::make_leafpar()
-  ph_leafpar[["T_leaf"]] <- NULL
-  obj <- combine_defaults(tl_leafpar, ph_leafpar, default_to, quiet)
+  obj <- photosynthesis::make_leafpar(use_tealeaves = TRUE)
   
   # Replace defaults ----
   obj %<>% replace_defaults(replace)
   
-  # Harmonize conductances ----
-  if (default_to == "photosynthesis") {
-    obj$g_sw <- gc2gw(obj$g_sc, constants$D_c0, constants$D_w0, unitless = FALSE)
-    obj$g_uw <- gc2gw(obj$g_uc, constants$D_c0, constants$D_w0, unitless = FALSE)
-  } else {
-    obj$g_sc <- gw2gc(obj$g_sw, constants$D_c0, constants$D_w0, unitless = FALSE)
-    obj$g_uc <- gw2gc(obj$g_uw, constants$D_c0, constants$D_w0, unitless = FALSE)
-  }
-  
-  # Notify if g_sw or g_sc are in replace ----
-  if (("g_sw" %in% replace | "g_sc" %in% replace) & !quiet) {
-    glue::glue("{x1} automatically converted from {x2} based on constants D_c0 and D_w0",
-               x1 = switch(default_to,
-                           photosynthesis = "g_sw",
-                           tealeaves = "g_sc"),
-               x2 = switch(default_to,
-                           photosynthesis = "g_sc",
-                           tealeaves = "g_sw")) %>%
-      message()
-  }
-  
-  # Notify if g_uw or g_uc are in replace ----
-  if (("g_uw" %in% replace | "g_uc" %in% replace) & !quiet) {
-    glue::glue("{x1} automatically converted from {x2} based on constants D_c0 and D_w0",
-               x1 = switch(default_to,
-                           photosynthesis = "g_uw",
-                           tealeaves = "g_uc"),
-               x2 = switch(default_to,
-                           photosynthesis = "g_uc",
-                           tealeaves = "g_uw")) %>%
-      message()
-  }
-  
   # Assign class and return -----
-  obj %<>% leaf_par()
+  obj %<>% leafoptimizer::leaf_par()
   
   obj
   
@@ -177,44 +150,22 @@ make_leafpar <- function(constants, replace = NULL,
 #' @rdname make_parameters
 #' @export
 
-make_enviropar <- function(replace = NULL, default_to = "photosynthesis", 
-                           quiet = FALSE) {
+make_enviropar <- function(replace = NULL) {
   
-  default_to %<>% match.arg(c("photosynthesis", "tealeaves"))
+  checkmate::assert_list(replace, null.ok = TRUE)
+
+  # Stop and warn if S_sw is in replace ----
+  if (!is.null(replace$S_sw)) {
+    stop("`S_sw` not allowed in replace. Use `PPFD` for light parameters instead.")
+  }
   
-  # Combine defaults -----
-  tl_enviropar <- tealeaves::make_enviropar()
-  ph_enviropar <- photosynthesis::make_enviropar()
-  obj <- combine_defaults(tl_enviropar, ph_enviropar, default_to, quiet)
-  
-  # Add new leafoptimizer-specific parameters
-  obj$f_par = set_units(0.5)
-  obj$E_q = set_units(220, "kJ/mol")
-  
+  obj <- photosynthesis::make_enviropar(use_tealeaves = TRUE)
+
   # Replace defaults ----
   obj %<>% replace_defaults(replace)
 
-  # Harmonize PPFD AND S_sw ----
-  if (default_to == "photosynthesis") {
-    obj$S_sw <- ppfd2sun(obj$PPFD, obj$f_par, obj$E_q)
-  } else {
-    obj$PPFD <- sun2ppfd(obj$S_sw, obj$f_par, obj$E_q)
-  }
-  
-  # Notify if PPFD or S_sw are in replace ----
-  if (("S_sw" %in% replace | "PPFD" %in% replace) & !quiet) {
-    glue::glue("{x1} automatically converted from {x2} based on f_par and E_q",
-               x1 = switch(default_to,
-                           photosynthesis = "S_sw",
-                           tealeaves = "PPFD"),
-               x2 = switch(default_to,
-                           photosynthesis = "PPFD",
-                           tealeaves = "S_sw")) %>%
-      message()
-  }
-  
   # Assign class and return ----
-  obj %<>% enviro_par()
+  obj %<>% leafoptimizer::enviro_par()
   
   obj
   
@@ -226,6 +177,8 @@ make_enviropar <- function(replace = NULL, default_to = "photosynthesis",
 
 make_bakepar <- function(replace = NULL) {
   
+  checkmate::assert_list(replace, null.ok = TRUE)
+  
   photosynthesis::make_bakepar(replace)
 
 }
@@ -234,16 +187,12 @@ make_bakepar <- function(replace = NULL) {
 #' @rdname make_parameters
 #' @export
 
-make_constants <- function(replace = NULL, default_to = "photosynthesis",
-                           quiet = FALSE) {
+make_constants <- function(replace = NULL) {
   
-  default_to %<>% match.arg(c("photosynthesis", "tealeaves"))
-  
-  # Combine defaults -----
-  tl_constants <- tealeaves::make_constants()
-  ph_constants <- photosynthesis::make_constants()
-  obj <- combine_defaults(tl_constants, ph_constants, default_to, quiet)
-  
+  checkmate::assert_list(replace, null.ok = TRUE)
+
+  obj <- photosynthesis::make_constants(use_tealeaves = TRUE)
+
   # Replace defaults -----
   if ("nu_constant" %in% names(replace)) {
     stopifnot(is.function(replace$nu_constant))
@@ -260,7 +209,7 @@ make_constants <- function(replace = NULL, default_to = "photosynthesis",
   obj %<>% replace_defaults(replace)
   
   # Assign class and return -----
-  obj %<>% constants()
+  obj %<>% leafoptimizer::constants()
   
   obj
   

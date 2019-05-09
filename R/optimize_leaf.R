@@ -105,9 +105,9 @@
 #' @export
 #' 
 
-optimize_leaves <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par, 
-                            constants, n_init = 1L, progress = TRUE, quiet = FALSE, 
-                            parallel = FALSE) {
+optimize_leaves <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par,
+                            constants, n_init = 1L, progress = TRUE, 
+                            quiet = FALSE, parallel = FALSE) {
   
   # Check inputs ----
   leaf_par %<>% leaf_par()
@@ -223,40 +223,61 @@ find_optima <- function(traits, carbon_costs, pars, bake_par, constants,
 #' Optimize C3 photosynthesis
 #' @description \code{optimize_leaf}: simulate C3 photosynthesis over a single parameter set
 #' @rdname optimize_leaves
+#' 
+#' #' @param check Logical. Should arguments checkes be done? This is intended to be disabled when \code{\link{optimize_leaf}} is called from \code{\link{optimize_leaves}} Default is TRUE.
+#' 
 #' @export
 
-optimize_leaf <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par, 
-                          constants, n_init, quiet = FALSE) {
-  
-  # Check traits ----
-  traits %<>% 
-    match.arg(c("g_sc", "leafsize", "logit_sr"), TRUE) %>%
-    sort()
+optimize_leaf <- function(traits, carbon_costs, bake_par, constants, enviro_par,
+                          leaf_par, set_units = TRUE, n_init, check = TRUE,
+                          quiet = FALSE) {
 
-  # Check carbon costs ----
-  check_carbon_costs(carbon_costs, quiet)
+  checkmate::assert_flag(check)
   
-  # Check parameters ----
-  constants %<>% constants()
-  leaf_par %<>% leaf_par()
-  bake_par %<>% photosynthesis::bake_par()
-  enviro_par %<>% enviro_par()
+  if (check) {
   
-  # Check n_init
-  if (!is.integer(n_init) | length(n_init) > 1L) {
-    n_init %<>% 
-      dplyr::first() %>% 
-      as.integer()
+    checkmate::assert_flag(set_units)
+    checkmate::assert_flag(quiet)
+    checkmate::assert_integerish(n_init, len = 1L, lower = 1L)
+  
+    # Check traits ----
+    checkmate::assert_character(traits)
+    checkmate::assert_vector(traits, min.len = 1L, max.len = 3L, unique = TRUE,
+                             any.missing = FALSE)
+
+    # Check carbon costs ----
+    check_carbon_costs(carbon_costs, quiet)
+    
+    # Check parameters ----
+    checkmate::assert_class(bake_par, "bake_par")
+    checkmate::assert_class(constants, "constants")
+    checkmate::assert_class(enviro_par, "enviro_par")
+    checkmate::assert_class(leaf_par, "leaf_par")
+    
   }
   
-  # Concatenate parameters ----
-  pars <- c(constants, leaf_par, enviro_par, bake_par)
+  traits %<>% 
+    match.arg(c("g_sc", "leafsize", "sr"), TRUE) %>%
+    sort()
+  
+  # Set units ----
+  if (set_units) {
+    bake_par %<>% photosynthesis::bake_par()
+    constants %<>% leafoptimizer::constants()
+    enviro_par %<>% leafoptimizer::enviro_par()
+    leaf_par %<>% leafoptimizer::leaf_par()
+  }
+  
+  # Concatenate parameters and drop units ----
+  pars <- c(bake_par, constants, enviro_par, leaf_par)
+  upars <- pars %>%
+    purrr::map_if(~ is(.x, "units"), drop_units)
   
   # Find optimum ----
   soln <- find_optimum(g_sc = ("g_sc" %in% traits), 
                        leafsize = ("leafsize" %in% traits), 
-                       logit_sr = ("logit_sr" %in% traits), 
-                       carbon_costs, pars, n_init, quiet)
+                       sr = ("sr" %in% traits), 
+                       carbon_costs, upars, n_init, quiet)
   
   # Check results ----
   check_results(soln)
@@ -303,84 +324,30 @@ optimize_leaf <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par,
 
 }
 
-find_optimum <- function(g_sc, leafsize, logit_sr, carbon_costs, pars, n_init,
+find_optimum <- function(g_sc, leafsize, sr, carbon_costs, upars, n_init,
                          quiet) {
   
-  unitless_pars <- pars %>% 
-    purrr::map_if(function(x) is(x, "units"), drop_units)
-  traits <- c("g_sc", "leafsize", "logit_sr")[c(g_sc, leafsize, logit_sr)]
+  traits <- c("g_sc", "leafsize", "logit_sr")[c(g_sc, leafsize, sr)]
   
-  # Find traits that maximize carbon gain ----
-  .f <- function(traits, g_sc, leafsize, logit_sr, carbon_costs, upars) {
-
-    if (g_sc) {
-      upars$g_sc <- traits[1]
-      upars$g_sw <- gc2gw(upars$g_sc, upars$D_c0, upars$D_w0, unitless = TRUE)
-    }
-    
-    if (leafsize) {
-      upars$leafsize <- dplyr::if_else(g_sc, traits[2], traits[1])
-    }
-    
-    if (logit_sr) {
-      upars$logit_sr <- dplyr::last(traits)
-      upars$k_sc <- upars$logit_sr %>%
-        stats::plogis() %>%
-        magrittr::divide_by(1 - .)
-    }
-    
-    upars$T_leaf <- tealeaves:::find_tleaf(upars, upars, upars, quiet = TRUE,
-                                           unitless = TRUE)$T_leaf
-    
-    upars %<>%
-      c(bake(., ., ., TRUE) %>%
-          purrr::map_if(function(x) is(x, "units"), drop_units))
-    
-    A <- photosynthesis:::find_A(upars, quiet = TRUE)$A
-
-    E <- tealeaves::E(upars$T_leaf, upars, unitless = TRUE)
-    
-    upars$g_sw * stats::plogis(upars$logit_sr) * carbon_costs$SR + 
-      E * 1e6 - carbon_costs$H2O * A
-    
-  }
+  # Initial values ----
+  init <- get_init(traits, n_init)
   
-  # Find initial values ----
-  init <- tidyr::crossing(
-    g_sc = seq(0, 10, length.out = n_init + 2L)[-c(1, n_init + 2L)], 
-    leafsize = seq(0.0005, 0.4, length.out = n_init + 2L)[-c(1, n_init + 2L)],
-    logit_sr = seq(-10, 10, length.out = n_init + 2L)[-c(1, n_init + 2L)]
-  ) %>%
-    dplyr::select(traits) %>%
-    unique() %>%
-    as.matrix()
-  stopifnot(nrow(init) == n_init ^ length(traits))
-  
+  # Parameter bounds ----
+  bounds <- get_bounds()
+    
   if (!quiet) {
     glue::glue("\nOptimizing leaf trait{s} ...",
                s = ifelse(length(traits) > 1, "s", "")) %>%
       crayon::green() %>%
       message(appendLF = FALSE)
   }
-
-  # Parameter bounds ----
-  # Based on Wright et al 2017, leaf size varies from 0.01 cm ^ 2 to 5000 cm ^ 2
-  # so minimum characteristic leaf dimension (radius of largest circle) is approximately:
-  # sqrt(0.01 / pi) / 100 = 0.0005
-  # sqrt(5000 / pi) / 100 = 0.4
-  c(lb, ub) %<-% list(
-    #as.matrix(data.frame(g_sc = 1, leafsize = c(0.0005, 0.02, 0.4), logit_sr = 0)), 
-    c(g_sc = 0, leafsize = 0.0005, logit_sr = -10), 
-    c(g_sc = 10, leafsize = 0.4, logit_sr = 10)
-  )
   
-  # Minimize .f() ----
+  # Minimize carbon_balance() ----
   if (length(traits) == 1L) {
     
-    print(init)
     soln <- purrr::map_dfr(init, function(.x, ...) {
       
-      fit <- stats::optim(.x, .f, ...)
+      fit <- stats::optim(.x, carbon_balance, ...)
       
       soln <- fit$par %>%
         as.data.frame() %>%
@@ -391,19 +358,14 @@ find_optimum <- function(g_sc, leafsize, logit_sr, carbon_costs, pars, n_init,
       
       soln
       
-    }, carbon_costs = carbon_costs, upars = unitless_pars, g_sc = g_sc, 
-    leafsize = leafsize, logit_sr = logit_sr, method = "Brent", 
-    lower = lb[traits], upper = ub[traits]
+    }, find_gsc = g_sc, find_leafsize = leafsize, find_sr = sr,
+    carbon_costs = carbon_costs, upars = upars,
+    method = "Brent", lower = bounds$lower[traits], upper = bounds$upper[traits]
     )
-    
-    print(soln)
     
     soln %<>% dplyr::top_n(-1, .data$value)
     
   } else {
-    
-    # print("\nmultistart")
-    # print(init)
     
     soln <- purrr::map_dfr(1:nrow(init), function(.x, ...) {
       
@@ -415,9 +377,9 @@ find_optimum <- function(g_sc, leafsize, logit_sr, carbon_costs, pars, n_init,
       
       soln
       
-    }, carbon_costs = carbon_costs,  upars = unitless_pars, 
-    g_sc = g_sc, leafsize = leafsize, logit_sr = logit_sr, 
-    method = "nlm", lower = lb[traits], upper = ub[traits]
+    }, find_gsc = g_sc, find_leafsize = leafsize, find_sr = sr,
+    carbon_costs = carbon_costs, upars = upars, 
+    method = "nlm", lower = bounds$lower[traits], upper = bounds$upper[traits]
     )
     
     soln %<>% dplyr::top_n(-1, .data$value)
@@ -430,11 +392,73 @@ find_optimum <- function(g_sc, leafsize, logit_sr, carbon_costs, pars, n_init,
       message()
   }
   
-  print(soln)
-  soln[1, ]
+  soln
   
 }
 
+carbon_balance <- function(trait_values, find_gsc, find_leafsize, find_sr,
+                           carbon_costs, upars) {
+  
+  if (find_gsc) {
+    upars$g_sc <- trait_values[1]
+    upars$g_sw <- gc2gw(upars$g_sc, upars$D_c0, upars$D_w0, unitless = TRUE)
+  }
+  
+  if (find_leafsize) {
+    upars$leafsize <- dplyr::if_else(find_gsc, trait_values[2], trait_values[1])
+  }
+  
+  if (find_sr) {
+    upars$logit_sr <- dplyr::last(trait_values)
+    upars$k_sc <- upars$logit_sr %>%
+      stats::plogis() %>%
+      magrittr::divide_by(1 - .)
+  }
+  
+  ph <- photosynthesis::photo(upars, upars, upars, upars, use_tealeaves = TRUE,
+                              quiet = TRUE, set_units = TRUE, check = FALSE,
+                              prepare_for_tleaf = TRUE)
+  
+  upars$g_sw <- drop_units(ph[["g_sw"]])
+  upars$g_uw <- drop_units(ph[["g_uw"]])
+  upars$logit_sr <- drop_units(ph[["logit_sr"]])
+  
+  E <- tealeaves::E(ph[["T_leaf"]], upars, unitless = TRUE)
+  
+  drop_units(ph[["g_sw"]] * stats::plogis(ph[["logit_sr"]]) * 
+               carbon_costs[["SR"]]) +
+    E * 1e6 - drop_units(carbon_costs[["H2O"]] * ph[["A"]])
+  
+}
+
+get_init <- function(traits, n_init) {
+  
+  init <- tidyr::crossing(
+    g_sc = seq(0, 10, length.out = n_init + 2L)[-c(1, n_init + 2L)], 
+    leafsize = seq(0.0005, 0.4, length.out = n_init + 2L)[-c(1, n_init + 2L)],
+    logit_sr = seq(-10, 10, length.out = n_init + 2L)[-c(1, n_init + 2L)]
+  ) %>%
+    dplyr::select(traits) %>%
+    unique() %>%
+    as.matrix()
+  stopifnot(nrow(init) == n_init ^ length(traits))
+  init
+  
+}
+
+get_bounds <- function() {
+  
+  # Based on Wright et al 2017, leaf size varies from 0.01 cm ^ 2 to 5000 cm ^ 2
+  # so minimum characteristic leaf dimension (radius of largest circle) is approximately:
+  # sqrt(0.01 / pi) / 100 = 0.0005
+  # sqrt(5000 / pi) / 100 = 0.4
+  list(
+    lower = c(g_sc = 0, leafsize = 0.0005, logit_sr = -10), 
+    upper = c(g_sc = 10, leafsize = 0.4, logit_sr = 10)
+  )
+  
+}
+  
 c_optimized_traits <- function(pars, traits, soln) {
   
   if ("g_sc" %in% traits) {

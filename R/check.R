@@ -1,17 +1,14 @@
 check_carbon_costs <- function(carbon_costs, quiet) {
+
+  checkmate::assert_flag(quiet)
   
-  stopifnot(is.list(carbon_costs))
-  stopifnot(c("H2O", "SR") %in% names(carbon_costs))
-  stopifnot(length(carbon_costs$H2O) == 1L)
-  stopifnot(length(carbon_costs$SR) == 1L)
-  stopifnot(is.numeric(carbon_costs$H2O))
-  stopifnot(is.numeric(carbon_costs$SR))
-  if (!quiet & length(carbon_costs) > 2L) {
-    "Only the carbon cost of H2O and SR currently supported. Other elements will be ignored." %>%
-      crayon::green() %>%
-      message()
-  }
-  
+  checkmate::assert_list(carbon_costs, types = "double", len = 2L,
+                         any.missing = FALSE, unique = TRUE, 
+                         names = "named")
+  checkmate::assert_subset(names(carbon_costs), choices = c("H2O", "SR"))
+  checkmate::assert_double(carbon_costs$H2O, lower = 0, len = 1L)
+  checkmate::assert_double(carbon_costs$SR, lower = 0, len = 1L)
+
   carbon_costs
   
 }

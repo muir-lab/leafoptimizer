@@ -9,25 +9,18 @@
 \alias{make_constants}
 \title{Make lists of parameters for \code{optimize_leaf}}
 \usage{
-make_leafpar(constants, replace = NULL, default_to = "photosynthesis",
-  quiet = FALSE)
+make_leafpar(replace = NULL)
 
-make_enviropar(replace = NULL, default_to = "photosynthesis",
-  quiet = FALSE)
+make_enviropar(replace = NULL)
 
 make_bakepar(replace = NULL)
 
-make_constants(replace = NULL, default_to = "photosynthesis",
-  quiet = FALSE)
+make_constants(replace = NULL)
 }
 \arguments{
-\item{constants}{A list of physical constants. This can be generated using the \code{make_constants} function. This is needed to ensure that CO2 and H2O conductances are internally consistent with each other.}
-
 \item{replace}{A named list of parameters to replace defaults. If \code{NULL}, defaults will be used.}
 
-\item{default_to}{A character string, either 'photosynthesis' or 'tealeaves', to indicate which package's default parameter to use when they conflict. Default to 'photosynthesis'.}
-
-\item{quiet}{Logical. Should messages about parameters be displayed?}
+\item{constants}{A list of physical constants. This can be generated using the \code{make_constants} function. This is needed to ensure that CO2 and H2O conductances are internally consistent with each other.}
 }
 \value{
 \code{make_leafpar}: An object inheriting from class \code{\link{leaf_par}}\cr
@@ -83,6 +76,8 @@ make_constants
 \tabular{lllll}{
 \emph{Symbol} \tab \emph{R} \tab \emph{Description} \tab \emph{Units} \tab \emph{Default}\cr
 \eqn{C_\mathrm{air}}{C_air} \tab \code{C_air} \tab atmospheric CO2 concentration \tab Pa \tab 41 \cr
+\eqn{E_q} \tab \code{E_q} \tab energy per mole quanta \tab kJ / mol\eqn{^2} \tab 220 \cr
+\eqn{f_\mathrm{PAR}}{f_PAR} \tab \code{f_par} \tab fraction of \eqn{S_\mathrm{sw}}{S_sw} that is photosynthetically active radiation (PAR) \tab none \tab 0.5 \cr
 \eqn{O} \tab \code{O} \tab atmospheric O2 concentration \tab kPa \tab 21.27565 \cr
 \eqn{P} \tab \code{P} \tab atmospheric pressure \tab kPa \tab 101.3246 \cr
 PPFD \tab \code{PPFD} \tab photosynthetic photon flux density \tab \eqn{\mu}mol quanta / (m^2 s) \tab 1500 \cr
@@ -123,6 +118,8 @@ PPFD \tab \code{PPFD} \tab photosynthetic photon flux density \tab \eqn{\mu}mol 
 }
 }
 \examples{
+library(leafoptimizer)
+
 constants <- make_constants()
 leaf_par <- make_leafpar(constants)
 enviro_par <- make_enviropar()

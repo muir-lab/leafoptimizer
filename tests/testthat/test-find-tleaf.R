@@ -3,10 +3,10 @@ library(leafoptimizer)
 
 test_that("find_tleaf calculated leaf temperature correctly", {
   
-  cs <- make_constants()
-  lp <- make_leafpar(cs)
   bp <- make_bakepar()
+  cs <- make_constants()
   ep <- make_enviropar()
+  lp <- make_leafpar(cs)
   
   traits <- "g_sc"
   carbon_costs <- list(H2O = 333.3)

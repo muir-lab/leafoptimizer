@@ -12,10 +12,10 @@
 
 constants <- function(.x) {
   
-  which <- "constants"
-  nms <- parameter_names(which)
+  checkmate::assert_list(.x)
   
-  stopifnot(is.list(.x))
+  which <- "constants"
+  nms <- leafoptimizer::parameter_names(which)
   
   if (!all(nms %in% names(.x))) {
     nms[!(nms %in% names(.x))] %>%
@@ -37,12 +37,6 @@ constants <- function(.x) {
   
   .x %<>% magrittr::extract(nms)
   
-  tl_constants <- tealeaves::constants(.x)
-  ph_constants <- photosynthesis::constants(.x)
-  shared_constants <- intersect(names(tl_constants), names(ph_constants))
-  stopifnot(identical(tl_constants[shared_constants], 
-                      ph_constants[shared_constants]))
-    
   structure(.x[nms], class = c(which, "list"))
   
 }

@@ -12,10 +12,10 @@
 
 leaf_par <- function(.x) {
   
+  checkmate::assert_list(.x)
+  
   which <- "leaf"
   nms <- parameter_names(which)
-  
-  stopifnot(is.list(.x))
   
   if (!all(nms %in% names(.x))) {
     nms[!(nms %in% names(.x))] %>%
@@ -36,12 +36,6 @@ leaf_par <- function(.x) {
   }
   
   .x %<>% magrittr::extract(nms)
-  
-  tl_leafpar <- tealeaves::leaf_par(.x)
-  ph_leafpar <- photosynthesis::leaf_par(c(.x, T_leaf = set_units(298.15, "K")))
-  shared_leafpar <- intersect(names(tl_leafpar), names(ph_leafpar))
-  stopifnot(identical(tl_leafpar[shared_leafpar], 
-                      ph_leafpar[shared_leafpar]))
   
   structure(.x, class = c(stringr::str_c(which, "_par"), "list"))
   

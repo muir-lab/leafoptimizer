@@ -52,22 +52,23 @@ sun2ppfd <- function(S_sw, f_par, E_q) {
 #' @rdname sun2ppfd
 #' 
 #' @inheritParams sun2ppfd
-#' @param PPFD hotosynthetic photon flux density in \eqn{\mu}mol quanta / (m^2 s) of class \code{units}.
+#' @param PPFD Photosynthetic photon flux density in \eqn{\mu}mol quanta / (m^2 s) of class \code{units}.
 #' 
 #' @export
 #' 
+
 
 ppfd2sun <- function(PPFD, f_par, E_q) {
   
   f_par %<>% drop_units()
   stopifnot(f_par >= 0 & f_par <= 1)
-  E_q %<>% set_units("kJ/mol")
+  E_q %<>% set_units(kJ/mol)
   
   PPFD %>% 
-    set_units("umol/m^2/s") %>%
+    set_units(umol/m^2/s) %>%
     magrittr::multiply_by(E_q) %>%
     magrittr::divide_by(f_par) %>% 
-    set_units("W/m^2")
+    set_units(W/m^2)
   
 }
 
