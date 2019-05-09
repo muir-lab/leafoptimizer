@@ -81,32 +81,32 @@
 #' \code{optimize_leaves}: This function uses \code{optimize_leaf} to optimize over multiple parameter sets that are generated using \code{\link[tidyr]{crossing}}. \cr
 #' 
 #' @examples 
-#' # Single parameter set with 'photo'
+#' # Single parameter set with 'optimize_leaf'
 #' 
-#' cs <- make_constants()
-#' lp <- make_leafpar(cs)
-#' ep <- make_enviropar()
 #' bp <- make_bakepar()
+#' cs <- make_constants()
+#' ep <- make_enviropar()
+#' lp <- make_leafpar()
 #' traits <- "g_sc"
 #' carbon_costs <- list(H2O = 1000, SR = 0)
-#' optimize_leaf("g_sc", carbon_costs, lp, ep, bp, cs, n_init = 1L)
+#' optimize_leaf("g_sc", carbon_costs, bp, cs, ep, lp, n_init = 1L)
 #' 
-#' # Multiple parameter sets with 'photosynthesis'
+#' # Multiple parameter sets with 'optimize_leaves'
 #' 
 #' ep <- make_enviropar(
 #'   replace = list(
 #'     T_air = set_units(c(293.14, 298.15), "K")
 #'   )
 #' )
-#' optimize_leaves(traits, carbon_costs, lp, ep, bp, cs, n_init = 1L)
+#' optimize_leaves(traits, carbon_costs, bp, cs, ep, lp, n_init = 1L)
 #' 
 #' @encoding UTF-8
 #' 
 #' @export
 #' 
 
-optimize_leaves <- function(traits, carbon_costs, leaf_par, enviro_par, bake_par,
-                            constants, n_init = 1L, progress = TRUE, 
+optimize_leaves <- function(traits, carbon_costs, bake_par, constants, 
+                            enviro_par, leaf_par, n_init = 1L, progress = TRUE, 
                             quiet = FALSE, parallel = FALSE) {
   
   # Check inputs ----
@@ -226,10 +226,12 @@ find_optima <- function(traits, carbon_costs, pars, bake_par, constants,
 #' 
 #' #' @param check Logical. Should arguments checkes be done? This is intended to be disabled when \code{\link{optimize_leaf}} is called from \code{\link{optimize_leaves}} Default is TRUE.
 #' 
+#' @param set_units Logical. Should \code{units} be set? The function is faster when FALSE, but input must be in correct units or else results will be incorrect without any warning.
+#' 
 #' @export
 
 optimize_leaf <- function(traits, carbon_costs, bake_par, constants, enviro_par,
-                          leaf_par, set_units = TRUE, n_init, check = TRUE,
+                          leaf_par, set_units = TRUE, n_init = 1L, check = TRUE,
                           quiet = FALSE) {
 
   checkmate::assert_flag(check)
