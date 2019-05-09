@@ -224,7 +224,7 @@ find_optima <- function(traits, carbon_costs, pars, bake_par, constants,
 #' @description \code{optimize_leaf}: simulate C3 photosynthesis over a single parameter set
 #' @rdname optimize_leaves
 #' 
-#' #' @param check Logical. Should arguments checkes be done? This is intended to be disabled when \code{\link{optimize_leaf}} is called from \code{\link{optimize_leaves}} Default is TRUE.
+#' #' @param check Logical. Should arguments checkes be done? This is intended to be disabled when \code{optimize_leaf} is called from \code{\link{optimize_leaves}} Default is TRUE.
 #' 
 #' @param set_units Logical. Should \code{units} be set? The function is faster when FALSE, but input must be in correct units or else results will be incorrect without any warning.
 #' 
@@ -287,33 +287,41 @@ optimize_leaf <- function(traits, carbon_costs, bake_par, constants, enviro_par,
     
   # Concatenate optimized traits in pars to calculate T_leaf, A, and E ----
   pars %<>% c_optimized_traits(traits, soln) 
-  unitless_pars <- pars %>% purrr::map_if(function(x) is(x, "units"), drop_units)
+  pars$S_sw <- set_units(pars[["PPFD"]] * pars[["E_q"]] / pars[["f_par"]], W/m^2)
+  if (!("g_sc" %in% traits)) {
+    pars$g_sw <- gc2gw(pars[["g_sc"]], pars[["D_c0"]], pars[["D_w0"]], 
+                       unitless = FALSE) 
+  }
+  pars$g_uw <- gc2gw(pars[["g_uc"]], pars[["D_c0"]], pars[["D_w0"]], 
+                     unitless = FALSE) 
+  if (!("sr" %in% traits)) {
+    pars$logit_sr <- stats::qlogis(pars[["k_sc"]] / 
+                                     (set_units(1) + pars[["k_sc"]]))
+  }
   
   # Calculate T_leaf, A, and E ----
+  unitless_pars <- pars %>% purrr::map_if(~ is(.x, "units"), drop_units)
   unitless_pars$T_leaf <- unitless_pars %>% 
     find_tleaf(., . , .) %>%
     magrittr::use_series("T_leaf")
   pars$T_leaf <- set_units(unitless_pars$T_leaf, "K")
 
   ph <- unitless_pars %>% 
-    c(bake(., ., ., unitless = TRUE)) %>%
+    c(photosynthesis::bake(., ., ., set_units = FALSE)) %>%
     find_A()
 
-  pars$A <- set_units(ph$A, "umol/m^2/s")
-  pars$C_chl <- set_units(ph$C_chl, "Pa")
+  pars$A <- set_units(ph$A, umol/m^2/s)
+  pars$C_chl <- set_units(ph$C_chl, Pa)
 
   eb <- tealeaves::energy_balance(
-    pars$T_leaf, tealeaves::leaf_par(pars), tealeaves::enviro_par(pars),
-    tealeaves::constants(pars), components = TRUE
+    unitless_pars$T_leaf, unitless_pars,  unitless_pars, unitless_pars, 
+    components = TRUE, set_units = FALSE
   )
   stopifnot(round(drop_units(eb$energy_balance), 1) == 0)
   
   pars %<>% c(eb$components)
   
-  blp <- bake(photosynthesis::leaf_par(pars), 
-              photosynthesis::bake_par(pars),
-              photosynthesis::constants(pars),
-              unitless = FALSE)
+  blp <- photosynthesis::bake(pars, pars, pars, set_units = TRUE)
   pars %<>% c(blp[!(names(blp) %in% names(.))])
   
   # Return ----
@@ -371,7 +379,7 @@ find_optimum <- function(g_sc, leafsize, sr, carbon_costs, upars, n_init,
     
     soln <- purrr::map_dfr(1:nrow(init), function(.x, ...) {
       
-      fit <- optimx::optimx(init[.x,], .f, ...)
+      fit <- optimx::optimx(init[.x,], carbon_balance, ...)
       
       soln <- fit %>%
         dplyr::filter(.data$value == min(.data$value)) %>%
@@ -464,26 +472,20 @@ get_bounds <- function() {
 c_optimized_traits <- function(pars, traits, soln) {
   
   if ("g_sc" %in% traits) {
-    pars$g_sc <- soln$g_sc
-    pars$g_sw <- gc2gw(pars$g_sc, pars$D_c0, pars$D_w0, unitless = TRUE) 
+    pars$g_sc <- set_units(soln$g_sc, umol/m^2/s/Pa)
+    pars$g_sw <- gc2gw(pars$g_sc, pars$D_c0, pars$D_w0, unitless = FALSE) 
   }
   
   if ("leafsize" %in% traits) {
-    pars$leafsize <- soln$leafsize
+    pars$leafsize <- set_units(soln$leafsize, m)
   }
   
-  if ("logit_sr" %in% traits) {
-    pars$logit_sr <- soln$logit_sr
+  if ("sr" %in% traits) {
+    pars$logit_sr <- set_units(soln$logit_sr)
     pars$k_sc <- pars$logit_sr %>%
       stats::plogis() %>%
-      magrittr::divide_by(1 - .)
+      magrittr::divide_by(set_units(1) - .)
   }
-  
-  pars$g_sc %<>% set_units("umol/m^2/s/Pa")
-  pars$g_sw %<>% set_units("umol/m^2/s/Pa")
-  pars$leafsize %<>% set_units("m")
-  pars$logit_sr %<>% set_units()
-  pars$k_sc %<>% set_units()
   
   pars
   
@@ -497,7 +499,7 @@ find_tleaf <- function(leaf_par, enviro_par, constants) {
   fit <- tryCatch({
     stats::uniroot(f = tealeaves::energy_balance, leaf_par = leaf_par, 
                    enviro_par = enviro_par, constants = constants, 
-                   quiet = TRUE, unitless = TRUE, check = FALSE,
+                   quiet = TRUE, set_units = FALSE,
                    lower = enviro_par$T_air - 30, upper = enviro_par$T_air + 30)
   }, finally = {
     fit <- list(root = NA, f.root = NA, convergence = 1)

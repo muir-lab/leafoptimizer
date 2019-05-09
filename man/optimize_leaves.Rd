@@ -3,15 +3,11 @@
 \encoding{UTF-8}
 \name{optimize_leaves}
 \alias{optimize_leaves}
-\alias{optimize_leaf}
 \title{Optimize leaf photosynthesis}
 \usage{
 optimize_leaves(traits, carbon_costs, leaf_par, enviro_par, bake_par,
   constants, n_init = 1L, progress = TRUE, quiet = FALSE,
   parallel = FALSE)
-
-optimize_leaf(traits, carbon_costs, bake_par, constants, enviro_par,
-  leaf_par, set_units = TRUE, n_init, quiet = FALSE)
 }
 \arguments{
 \item{traits}{A vector of one or more character strings indicating which trait(s) to optimize. Stomatal conductance (\code{g_sc}) and stomatal ratio (\code{logit_sr}) are currently supported.}
@@ -88,8 +84,6 @@ A data.frame with the following \code{units} columns \cr
 }
 \description{
 \code{optimize_leaves}: optimize C3 photosynthesis over multiple parameter sets
-
-\code{optimize_leaf}: simulate C3 photosynthesis over a single parameter set
 }
 \details{
 \code{optimize_leaf}: This function optimizes leaf traits using an integrated leaf temperature and C3 photosynthesis model under a set of environmental conditions. The leaf temperature model is described in the \code{\link[tealeaves]{tealeaves}} package. The C3 photosynthesis model is described in the \code{\link[photosynthesis]{photosynthesis-package}} package\cr
@@ -99,10 +93,10 @@ A data.frame with the following \code{units} columns \cr
 \examples{
 # Single parameter set with 'photo'
 
-cs <- make_constants()
-lp <- make_leafpar(cs)
-ep <- make_enviropar()
 bp <- make_bakepar()
+cs <- make_constants()
+ep <- make_enviropar()
+lp <- make_leafpar()
 traits <- "g_sc"
 carbon_costs <- list(H2O = 1000, SR = 0)
 optimize_leaf("g_sc", carbon_costs, lp, ep, bp, cs, n_init = 1L)
