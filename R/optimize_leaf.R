@@ -6,15 +6,19 @@
 #' 
 #' @param carbon_costs A named list of resources with their costs in terms of carbon (e.g. mol C / mol H2O). Currently only H2O and SR are supported. See details below.
 #' 
-#' @param leaf_par A list of leaf parameters inheriting class \code{leaf_par}. This can be generated using the \code{make_leafpar} function.
-#' 
-#' @param enviro_par A list of environmental parameters inheriting class \code{enviro_par}. This can be generated using the \code{make_enviropar} function.
+#' @param constants A list of physical constants inheriting class \code{constants}. This can be generated using the \code{make_constants} function.
 #' 
 #' @param bake_par A list of temperature response parameters inheriting class \code{bake_par}. This can be generated using the \code{make_bakepar} function.
 #' 
-#' @param n_init Integer. Number of initial values for each trait to try during optimization. If there are multiple traits, these initial values are crossed. For example, if \code{n_init = 3}, the total number of intitial values sets is 3, 9, 27 for 1, 2, 3 traits, respectively. This significantly increases the time, but may be important if the surface is rugged. Default is 1L.
+#' @param enviro_par A list of environmental parameters inheriting class \code{enviro_par}. This can be generated using the \code{make_enviropar} function.
 #' 
-#' @param constants A list of physical constants inheriting class \code{constants}. This can be generated using the \code{make_constants} function.
+#' @param leaf_par A list of leaf parameters inheriting class \code{leaf_par}. This can be generated using the \code{make_leafpar} function.
+#' 
+#' @param set_units Logical. Should \code{units} be set? The function is faster when FALSE, but input must be in correct units or else results will be incorrect without any warning.
+
+#' @param check Logical. Should arguments checkes be done? This is intended to be disabled when \code{optimize_leaf} is called from \code{\link{optimize_leaves}} Default is TRUE.
+#' 
+#' @param n_init Integer. Number of initial values for each trait to try during optimization. If there are multiple traits, these initial values are crossed. For example, if \code{n_init = 3}, the total number of intitial values sets is 3, 9, 27 for 1, 2, 3 traits, respectively. This significantly increases the time, but may be important if the surface is rugged. Default is 1L.
 #' 
 #' @param progress Logical. Should a progress bar be displayed?
 #' 
@@ -106,14 +110,43 @@
 #' 
 
 optimize_leaves <- function(traits, carbon_costs, bake_par, constants, 
-                            enviro_par, leaf_par, n_init = 1L, progress = TRUE, 
+                            enviro_par, leaf_par, set_units = TRUE, 
+                            check = TRUE, n_init = 1L, progress = TRUE, 
                             quiet = FALSE, parallel = FALSE) {
   
-  # Check inputs ----
-  leaf_par %<>% leaf_par()
-  enviro_par %<>% enviro_par()
-  bake_par %<>% photosynthesis::bake_par()
-  constants %<>% constants()
+  checkmate::assert_flag(check)
+  
+  if (check) {
+    
+    checkmate::assert_flag(set_units)
+    checkmate::assert_flag(progress)
+    checkmate::assert_flag(quiet)
+    checkmate::assert_flag(parallel)
+    checkmate::assert_integerish(n_init, len = 1L, lower = 1L)
+    
+    # Check traits ----
+    checkmate::assert_character(traits)
+    checkmate::assert_vector(traits, min.len = 1L, max.len = 3L, unique = TRUE,
+                             any.missing = FALSE)
+    
+    # Check carbon costs ----
+    check_carbon_costs(carbon_costs, quiet)
+    
+    # Check parameters ----
+    checkmate::assert_class(bake_par, "bake_par")
+    checkmate::assert_class(constants, "constants")
+    checkmate::assert_class(enviro_par, "enviro_par")
+    checkmate::assert_class(leaf_par, "leaf_par")
+    
+  }
+  
+  # Set units ----
+  if (set_units) {
+    bake_par %<>% photosynthesis::bake_par()
+    constants %<>% leafoptimizer::constants()
+    enviro_par %<>% leafoptimizer::enviro_par()
+    leaf_par %<>% leafoptimizer::leaf_par()
+  }
   
   # Capture units ----
   pars <- c(leaf_par, enviro_par)
@@ -121,7 +154,9 @@ optimize_leaves <- function(traits, carbon_costs, bake_par, constants,
     magrittr::set_names(names(pars))
   
   # Make parameter sets ----
-  pars %<>% make_parameter_sets(constants, par_units)
+  ## cross_df() removes units. 
+  ## This code will cause errors if units are not properly set
+  pars %<>% purrr::cross_df()
   
   # Optimize ----
   soln <- find_optima(traits, carbon_costs, pars, bake_par, constants, 
@@ -132,56 +167,13 @@ optimize_leaves <- function(traits, carbon_costs, bake_par, constants,
   
 }
 
-make_parameter_sets <- function(pars, constants, par_units) {
-  
-  pars %<>%
-    names() %>%
-    glue::glue("{x} = pars${x}", x = .) %>%
-    stringr::str_c(collapse = ", ") %>%
-    glue::glue("tidyr::crossing({x})", x = .) %>%
-    parse(text = .) %>%
-    eval() %>%
-    # Exclude mismatched parameter sets generated in tidyr::crossing
-    dplyr::mutate(
-      PPFD1 = drop_units(sun2ppfd(
-        set_units(.data$S_sw, par_units[["S_sw"]], mode = "standard"), 
-        set_units(.data$f_par, par_units[["f_par"]], mode = "standard"), 
-        set_units(.data$E_q, par_units[["E_q"]], mode = "standard")
-      )),
-      g_sw1 = drop_units(gc2gw(
-        set_units(.data$g_sc, par_units[["g_sc"]], mode = "standard"),
-        constants$D_c0, constants$D_w0, unitless = FALSE
-      )),
-      g_uw1 = drop_units(gc2gw(
-        set_units(.data$g_uc, par_units[["g_uc"]], mode = "standard"),
-        constants$D_c0, constants$D_w0, unitless = FALSE
-      ))
-    ) %>%
-    dplyr::filter(round(.data$PPFD, 6) == round(.data$PPFD1, 6),
-                  round(.data$g_sw, 6) == round(.data$g_sw1, 6),
-                  round(.data$g_uw, 6) == round(.data$g_uw1, 6)) %>%
-    dplyr::select(-"PPFD1", -"g_sw1", -"g_uw1") %>%
-    purrr::transpose()
-  
-  tidyr::crossing(i = seq_len(length(pars)),
-                  par = names(pars[[1]])) %>%
-    dplyr::transmute(ex = glue::glue("units(pars[[{i}]]${par}) <<- par_units${par}", 
-                                     i = .data$i, par = .data$par)) %>%
-    dplyr::pull("ex") %>%
-    parse(text = .) %>%
-    eval()
-  
-  pars
-  
-}
-
-find_optima <- function(traits, carbon_costs, pars, bake_par, constants, 
+find_optima <- function(traits, carbon_costs, par_sets, bake_par, constants, 
                         par_units, n_init, progress, quiet, parallel) {
   
   if (!quiet) {
     glue::glue("\nOptimizing leaf trait{s1} from {n} parameter set{s2} ...", 
-               s1 = ifelse(length(traits) > 1, "s", ""), n = length(pars), 
-               s2 = dplyr::if_else(length(pars) > 1, "s", "")) %>%
+               s1 = ifelse(length(traits) > 1, "s", ""), n = length(par_sets), 
+               s2 = dplyr::if_else(length(par_sets) > 1, "s", "")) %>%
       crayon::green() %>%
       message(appendLF = FALSE)
   }
@@ -191,11 +183,14 @@ find_optima <- function(traits, carbon_costs, pars, bake_par, constants,
   if (progress & !parallel) pb <- dplyr::progress_estimated(length(pars))
   
   soln <- suppressWarnings(
-    pars %>%
+    par_sets %>%
+      as.list() %>%
+      purrr::transpose() %>%
       furrr::future_map_dfr(~{
         
-        ret <- optimize_leaf(traits, carbon_costs, leaf_par(.x), enviro_par(.x), 
-                             bake_par, constants, n_init, quiet = TRUE)
+        ret <- optimize_leaf(traits, carbon_costs, bake_par, constants, 
+                             .x, .x, set_units = FALSE, n_init, 
+                             check = FALSE, quiet = TRUE)
         if (progress & !parallel) pb$tick()$print()
         ret
         
@@ -223,11 +218,6 @@ find_optima <- function(traits, carbon_costs, pars, bake_par, constants,
 #' Optimize C3 photosynthesis
 #' @description \code{optimize_leaf}: simulate C3 photosynthesis over a single parameter set
 #' @rdname optimize_leaves
-#' 
-#' #' @param check Logical. Should arguments checkes be done? This is intended to be disabled when \code{optimize_leaf} is called from \code{\link{optimize_leaves}} Default is TRUE.
-#' 
-#' @param set_units Logical. Should \code{units} be set? The function is faster when FALSE, but input must be in correct units or else results will be incorrect without any warning.
-#' 
 #' @export
 
 optimize_leaf <- function(traits, carbon_costs, bake_par, constants, enviro_par,
@@ -295,6 +285,7 @@ optimize_leaf <- function(traits, carbon_costs, bake_par, constants, enviro_par,
   pars$g_uw <- gc2gw(pars[["g_uc"]], pars[["D_c0"]], pars[["D_w0"]], 
                      unitless = FALSE) 
   if (!("sr" %in% traits)) {
+    pars[["k_sc"]] <- set_units(pars[["k_sc"]])
     pars$logit_sr <- stats::qlogis(pars[["k_sc"]] / 
                                      (set_units(1) + pars[["k_sc"]]))
   }
