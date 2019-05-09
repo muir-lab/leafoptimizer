@@ -341,7 +341,7 @@ find_optimum <- function(g_sc, leafsize, sr, carbon_costs, upars, n_init,
   
   # Initial values ----
   init <- get_init(traits, n_init)
-  
+
   # Parameter bounds ----
   bounds <- get_bounds()
     
@@ -353,49 +353,23 @@ find_optimum <- function(g_sc, leafsize, sr, carbon_costs, upars, n_init,
   }
   
   # Minimize carbon_balance() ----
-  if (length(traits) == 1L) {
+  soln <- purrr::map_dfr(init, function(.x, ...) {
     
-    soln <- purrr::map_dfr(init, function(.x, ...) {
-      
-      fit <- stats::optim(.x, carbon_balance, ...)
-      
-      soln <- fit$par %>%
-        as.data.frame() %>%
-        t() %>%
-        as.data.frame() %>%
-        magrittr::set_colnames(traits) %>%
-        dplyr::mutate(value = fit$value, convergence = fit$convergence)
-      
-      soln
-      
-    }, find_gsc = g_sc, find_leafsize = leafsize, find_sr = sr,
-    carbon_costs = carbon_costs, upars = upars,
-    method = "Brent", lower = bounds$lower[traits], upper = bounds$upper[traits]
-    )
+    fit <- optimx::optimx(unlist(.x), carbon_balance, ...)
     
-    soln %<>% dplyr::top_n(-1, .data$value)
+    soln <- fit %>%
+      dplyr::filter(.data$value == min(.data$value)) %>%
+      dplyr::select(c(traits, "value", convergence = "convcode"))
     
-  } else {
+    soln
     
-    soln <- purrr::map_dfr(1:nrow(init), function(.x, ...) {
-      
-      fit <- optimx::optimx(init[.x,], carbon_balance, ...)
-      
-      soln <- fit %>%
-        dplyr::filter(.data$value == min(.data$value)) %>%
-        dplyr::select(c(traits, "value", convergence = "convcode"))
-      
-      soln
-      
-    }, find_gsc = g_sc, find_leafsize = leafsize, find_sr = sr,
-    carbon_costs = carbon_costs, upars = upars, 
-    method = "nlm", lower = bounds$lower[traits], upper = bounds$upper[traits]
-    )
-    
-    soln %<>% dplyr::top_n(-1, .data$value)
-    
-  }
-    
+  }, find_gsc = g_sc, find_leafsize = leafsize, find_sr = sr,
+  carbon_costs = carbon_costs, upars = upars,
+  method = dplyr::if_else(length(traits) == 1L, "L-BFGS-B", "nlm"), 
+  lower = bounds$lower[traits], upper = bounds$upper[traits]
+  ) %>% 
+    dplyr::top_n(-1, .data$value)
+  
   if (!quiet) {
     " done" %>%
       crayon::green() %>%
@@ -409,18 +383,27 @@ find_optimum <- function(g_sc, leafsize, sr, carbon_costs, upars, n_init,
 carbon_balance <- function(trait_values, find_gsc, find_leafsize, find_sr,
                            carbon_costs, upars) {
   
+  checkmate::assert_numeric(
+    trait_values, 
+    len = length(which(c(find_gsc, find_leafsize, find_sr)))
+  )
+  checkmate::assert_subset(names(trait_values), 
+                           choices = c("g_sc", "leafsize", "logit_sr"),
+                           empty.ok = FALSE)
+  
   if (find_gsc) {
-    upars$g_sc <- trait_values[1]
-    upars$g_sw <- gc2gw(upars$g_sc, upars$D_c0, upars$D_w0, unitless = TRUE)
+    upars[["g_sc"]] <- trait_values[["g_sc"]]
+    upars[["g_sw"]] <- gc2gw(upars[["g_sc"]], upars[["D_c0"]], upars[["D_w0"]],
+                             unitless = TRUE)
   }
   
   if (find_leafsize) {
-    upars$leafsize <- dplyr::if_else(find_gsc, trait_values[2], trait_values[1])
+    upars[["leafsize"]] <- trait_values[["leafsize"]]
   }
   
   if (find_sr) {
-    upars$logit_sr <- dplyr::last(trait_values)
-    upars$k_sc <- upars$logit_sr %>%
+    upars[["logit_sr"]] <- trait_values[["logit_sr"]]
+    upars[["k_sc"]] <- upars[["logit_sr"]] %>%
       stats::plogis() %>%
       magrittr::divide_by(1 - .)
   }
@@ -429,9 +412,9 @@ carbon_balance <- function(trait_values, find_gsc, find_leafsize, find_sr,
                               quiet = TRUE, set_units = TRUE, check = FALSE,
                               prepare_for_tleaf = TRUE)
   
-  upars$g_sw <- drop_units(ph[["g_sw"]])
-  upars$g_uw <- drop_units(ph[["g_uw"]])
-  upars$logit_sr <- drop_units(ph[["logit_sr"]])
+  upars[["g_sw"]] <- drop_units(ph[["g_sw"]])
+  upars[["g_uw"]] <- drop_units(ph[["g_uw"]])
+  upars[["logit_sr"]] <- drop_units(ph[["logit_sr"]])
   
   E <- tealeaves::E(ph[["T_leaf"]], upars, unitless = TRUE)
   
@@ -449,10 +432,13 @@ get_init <- function(traits, n_init) {
     logit_sr = seq(-10, 10, length.out = n_init + 2L)[-c(1, n_init + 2L)]
   ) %>%
     dplyr::select(traits) %>%
-    unique() %>%
-    as.matrix()
+    unique()
+  
   stopifnot(nrow(init) == n_init ^ length(traits))
-  init
+  
+  init %>%
+    as.list() %>%
+    purrr::transpose()
   
 }
 
