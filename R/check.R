@@ -15,7 +15,8 @@ check_carbon_costs <- function(carbon_costs, quiet) {
 
 check_results <- function(soln) {
   
-  if (soln$convergence == 1) {
+  # if (soln$convergence == 1) {
+  if (soln$convergence != 1) {
     "stats::optim did not converge, NA returned. Inspect parameters carefully." %>%
       crayon::red() %>%
       message()

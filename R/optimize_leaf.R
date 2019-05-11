@@ -272,9 +272,11 @@ optimize_leaf <- function(traits, carbon_costs, bake_par, constants, enviro_par,
                        carbon_costs, upars, n_init, quiet)
   
   # Check results ----
-  check_results(soln)
+  # check_results(soln)
   pars$carbon_balance <- -soln$value
-    
+  pars$convergence <- soln$convergence
+  pars$message <- soln$message
+  
   # Concatenate optimized traits in pars to calculate T_leaf, A, and E ----
   pars %<>% c_optimized_traits(traits, soln) 
   pars$S_sw <- set_units(pars[["PPFD"]] * pars[["E_q"]] / pars[["f_par"]], W/m^2)
@@ -346,18 +348,28 @@ find_optimum <- function(g_sc, leafsize, sr, carbon_costs, upars, n_init,
   # Minimize carbon_balance() ----
   soln <- purrr::map_dfr(init, function(.x, ...) {
     
-    fit <- optimx::optimx(unlist(.x), carbon_balance, ...)
+    fit <- nloptr::nloptr(unlist(.x), carbon_balance, ...)
     
-    soln <- fit %>%
-      dplyr::filter(.data$value == min(.data$value)) %>%
-      dplyr::select(c(traits, "value", convergence = "convcode"))
+    soln <- tibble::as_tibble(t(c(fit$solution, fit$objective, fit$status))) %>%
+      dplyr::mutate_all(as.numeric) %>%
+      dplyr::mutate(message = fit$message) %>%
+      magrittr::set_colnames(c(names(.x), "value", "convergence", "message")) 
+    
+    # Method using optimx
+    # fit <- optimx::optimx(unlist(.x), carbon_balance, ...)
+    # 
+    # soln <- fit %>%
+    #   dplyr::filter(.data$value == min(.data$value)) %>%
+    #   dplyr::select(c(traits, "value", convergence = "convcode"))
     
     soln
     
   }, find_gsc = g_sc, find_leafsize = leafsize, find_sr = sr,
   carbon_costs = carbon_costs, upars = upars,
-  method = dplyr::if_else(length(traits) == 1L, "L-BFGS-B", "nlm"), 
-  lower = bounds$lower[traits], upper = bounds$upper[traits]
+  # method = dplyr::if_else(length(traits) == 1L, "L-BFGS-B", "nlm"), 
+  # lower = bounds$lower[traits], upper = bounds$upper[traits]
+  opts = list("algorithm" = "NLOPT_LN_BOBYQA", "xtol_rel" = 1.0e-8),
+  lb = bounds$lower[traits], ub = bounds$upper[traits]
   ) %>% 
     dplyr::top_n(-1, .data$value)
   
@@ -378,22 +390,25 @@ carbon_balance <- function(trait_values, find_gsc, find_leafsize, find_sr,
     trait_values, 
     len = length(which(c(find_gsc, find_leafsize, find_sr)))
   )
-  checkmate::assert_subset(names(trait_values), 
-                           choices = c("g_sc", "leafsize", "logit_sr"),
-                           empty.ok = FALSE)
+  # checkmate::assert_subset(names(trait_values), 
+  #                          choices = c("g_sc", "leafsize", "logit_sr"),
+  #                          empty.ok = FALSE)
   
   if (find_gsc) {
-    upars[["g_sc"]] <- trait_values[["g_sc"]]
+    # upars[["g_sc"]] <- trait_values[["g_sc"]]
+    upars[["g_sc"]] <- trait_values[1]
     upars[["g_sw"]] <- gc2gw(upars[["g_sc"]], upars[["D_c0"]], upars[["D_w0"]],
                              unitless = TRUE)
   }
   
   if (find_leafsize) {
-    upars[["leafsize"]] <- trait_values[["leafsize"]]
+    # upars[["leafsize"]] <- trait_values[["leafsize"]]
+    upars[["leafsize"]] <- ifelse(find_gsc, trait_values[2], trait_values[1])
   }
   
   if (find_sr) {
-    upars[["logit_sr"]] <- trait_values[["logit_sr"]]
+    # upars[["logit_sr"]] <- trait_values[["logit_sr"]]
+    upars[["logit_sr"]] <- dplyr::last(trait_values)
     upars[["k_sc"]] <- upars[["logit_sr"]] %>%
       stats::plogis() %>%
       magrittr::divide_by(1 - .)
@@ -440,8 +455,8 @@ get_bounds <- function() {
   # sqrt(0.01 / pi) / 100 = 0.0005
   # sqrt(5000 / pi) / 100 = 0.4
   list(
-    lower = c(g_sc = 0, leafsize = 0.0005, logit_sr = -10), 
-    upper = c(g_sc = 10, leafsize = 0.4, logit_sr = 10)
+    lower = c(g_sc = 0, leafsize = 0.0005, logit_sr = -Inf), 
+    upper = c(g_sc = 10, leafsize = 0.4, logit_sr = Inf)
   )
   
 }
