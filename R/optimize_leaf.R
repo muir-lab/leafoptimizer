@@ -218,11 +218,13 @@ find_optima <- function(traits, carbon_costs, par_sets, bake_par, constants,
 #' Optimize C3 photosynthesis
 #' @description \code{optimize_leaf}: simulate C3 photosynthesis over a single parameter set
 #' @rdname optimize_leaves
+#' @refit Logical. Should optimization be retried from different starting parameters if it fails to converge? If TRUE, upon failure, \code{n_init} will increment up by 1 until successful convergence or \code{n_init > max_init}.
+#' @max_init Integer. If \code{refit = TRUE}, the maximum number \code{n_init} to try.
 #' @export
 
 optimize_leaf <- function(traits, carbon_costs, bake_par, constants, enviro_par,
                           leaf_par, set_units = TRUE, n_init = 1L, check = TRUE,
-                          quiet = FALSE) {
+                          quiet = FALSE, refit = TRUE, max_init = 3L) {
 
   checkmate::assert_flag(check)
   
@@ -231,7 +233,9 @@ optimize_leaf <- function(traits, carbon_costs, bake_par, constants, enviro_par,
     checkmate::assert_flag(set_units)
     checkmate::assert_flag(quiet)
     checkmate::assert_integerish(n_init, len = 1L, lower = 1L)
-  
+    checkmate::assert_flag(refit)
+    checkmate::assert_integerish(max_init, len = 1L, lower = n_init)
+    
     # Check traits ----
     checkmate::assert_character(traits)
     checkmate::assert_vector(traits, min.len = 1L, max.len = 3L, unique = TRUE,
@@ -271,11 +275,26 @@ optimize_leaf <- function(traits, carbon_costs, bake_par, constants, enviro_par,
                        sr = ("sr" %in% traits), 
                        carbon_costs, upars, n_init, quiet)
   
+  # Refit ----
+  while (refit & soln$convergence != 0 & n_init <= max_init) {
+    n_init %<>% magrittr::add(1L)
+    if (!quiet) {
+      glue::glue("\nRefitting with n_init = {n} ...", n = n_init) %>%
+        crayon::green() %>%
+        message(appendLF = FALSE)
+      
+    }
+    soln <- find_optimum(g_sc = ("g_sc" %in% traits), 
+                         leafsize = ("leafsize" %in% traits), 
+                         sr = ("sr" %in% traits), 
+                         carbon_costs, upars, n_init, quiet)
+  }
+  
   # Check results ----
-  # check_results(soln)
+  check_results(soln)
   pars$carbon_balance <- -soln$value
   pars$convergence <- soln$convergence
-  pars$message <- soln$message
+  # pars$message <- soln$message
   
   # Concatenate optimized traits in pars to calculate T_leaf, A, and E ----
   pars %<>% c_optimized_traits(traits, soln) 
@@ -348,28 +367,28 @@ find_optimum <- function(g_sc, leafsize, sr, carbon_costs, upars, n_init,
   # Minimize carbon_balance() ----
   soln <- purrr::map_dfr(init, function(.x, ...) {
     
-    fit <- nloptr::nloptr(unlist(.x), carbon_balance, ...)
-    
-    soln <- tibble::as_tibble(t(c(fit$solution, fit$objective, fit$status))) %>%
-      dplyr::mutate_all(as.numeric) %>%
-      dplyr::mutate(message = fit$message) %>%
-      magrittr::set_colnames(c(names(.x), "value", "convergence", "message")) 
+    # fit <- nloptr::nloptr(unlist(.x), carbon_balance, ...)
+    # 
+    # soln <- tibble::as_tibble(t(c(fit$solution, fit$objective, fit$status))) %>%
+    #   dplyr::mutate_all(as.numeric) %>%
+    #   dplyr::mutate(message = fit$message) %>%
+    #   magrittr::set_colnames(c(names(.x), "value", "convergence", "message")) 
     
     # Method using optimx
-    # fit <- optimx::optimx(unlist(.x), carbon_balance, ...)
-    # 
-    # soln <- fit %>%
-    #   dplyr::filter(.data$value == min(.data$value)) %>%
-    #   dplyr::select(c(traits, "value", convergence = "convcode"))
+    fit <- optimx::optimx(unlist(.x), carbon_balance, ...)
+    
+    soln <- fit %>%
+      dplyr::filter(.data$value == min(.data$value)) %>%
+      dplyr::select(c(traits, "value", convergence = "convcode"))
     
     soln
     
   }, find_gsc = g_sc, find_leafsize = leafsize, find_sr = sr,
   carbon_costs = carbon_costs, upars = upars,
-  # method = dplyr::if_else(length(traits) == 1L, "L-BFGS-B", "nlm"), 
-  # lower = bounds$lower[traits], upper = bounds$upper[traits]
-  opts = list("algorithm" = "NLOPT_LN_BOBYQA", "xtol_rel" = 1.0e-8),
-  lb = bounds$lower[traits], ub = bounds$upper[traits]
+  method = dplyr::if_else(length(traits) == 1L, "L-BFGS-B", "nlminb"), 
+  lower = bounds$lower[traits], upper = bounds$upper[traits]
+  # opts = list("algorithm" = "NLOPT_LN_BOBYQA", "xtol_rel" = 1.0e-8),
+  # lb = bounds$lower[traits], ub = bounds$upper[traits]
   ) %>% 
     dplyr::top_n(-1, .data$value)
   
@@ -455,8 +474,8 @@ get_bounds <- function() {
   # sqrt(0.01 / pi) / 100 = 0.0005
   # sqrt(5000 / pi) / 100 = 0.4
   list(
-    lower = c(g_sc = 0, leafsize = 0.0005, logit_sr = -Inf), 
-    upper = c(g_sc = 10, leafsize = 0.4, logit_sr = Inf)
+    lower = c(g_sc = 0, leafsize = 0.0005, logit_sr = -10), 
+    upper = c(g_sc = 10, leafsize = 0.4, logit_sr = 10)
   )
   
 }
