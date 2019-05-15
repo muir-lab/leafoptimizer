@@ -10,17 +10,11 @@ leafoptimizer
 ## Description
 
 ## Get leafoptimizer
-From CRAN (not on CRAN yet)
+From GitHub
 
 ```r
-install.packages("leafoptimizer")
-```
-
-or from GitHub
-
-```r
-install.packages("devtools")
-devtools::install_github("cdmuir/leafoptimizer")
+install.packages("remotes")
+remotes::install_github("cdmuir/leafoptimizer")
 ```
 
 And load leafoptimizer

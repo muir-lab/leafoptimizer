@@ -16,7 +16,7 @@ gc2gw(g_c, D_c, D_w, unitless)
 
 \item{D_w}{diffusion coefficient for H2O in air in units of m^2/s of call \code{units}}
 
-\item{unitless}{Logical. Should units be set? The function is faster when FALSE, but input must be in correct units or else results will be incorrect without any warning.}
+\item{unitless}{Logical. Should \code{units} be set?}
 
 \item{g_c}{conductance to CO2 in units (\eqn{\mu}mol H2O / (m^2 s Pa)) of class \code{units}.}
 }

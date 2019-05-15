@@ -1,6 +1,5 @@
 #' Make lists of parameters for \code{optimize_leaf}
 #'
-#' @param constants A list of physical constants. This can be generated using the \code{make_constants} function. This is needed to ensure that CO2 and H2O conductances are internally consistent with each other.
 #' @param replace A named list of parameters to replace defaults. If \code{NULL}, defaults will be used.
 #' 
 #' @name make_parameters
@@ -105,12 +104,12 @@ NULL
 #' @examples 
 #' library(leafoptimizer)
 #' 
-#' constants <- make_constants()
-#' leaf_par <- make_leafpar(constants)
-#' enviro_par <- make_enviropar()
 #' bake_par <- make_bakepar()
+#' constants <- make_constants()
+#' enviro_par <- make_enviropar()
+#' leaf_par <- make_leafpar()
 #' 
-#' leaf_par <- make_leafpar(constants,
+#' leaf_par <- make_leafpar(
 #'   replace = list(
 #'     g_sc = set_units(3, "umol/m^2/s/Pa"),
 #'     V_cmax25 = set_units(100, "umol/m^2/s")
@@ -214,71 +213,6 @@ make_constants <- function(replace = NULL) {
   obj
   
 }
-
-#' Combine default parameters
-#' 
-#' @param tl_pars List of {tealeaves} parameters.
-#' @param ph_pars List of {photosynthesis} parameters.
-#' @inheritParams make_parameters
-
-combine_defaults <- function(tl_pars, ph_pars, default_to, quiet) {
-  
-  stopifnot(identical(class(tl_pars), class(ph_pars)))
-  
-  shared_pars <- intersect(names(tl_pars), names(ph_pars))
-  
-  tl_fxns <- tl_pars %>%
-    purrr::map(class) %>%
-    magrittr::equals("function") %>%
-    which() %>%
-    names()
-  
-  ph_fxns <- ph_pars %>%
-    purrr::map(class) %>%
-    magrittr::equals("function") %>%
-    which() %>%
-    names()
-  
-  shared_fxns <- intersect(tl_fxns, ph_fxns)
-  
-  shared_pars %<>% setdiff(shared_fxns)
-  
-  defaults_identical <- purrr::map_lgl(
-    shared_pars, function(x) identical(tl_pars[x], ph_pars[x])
-  )
-  
-  if (any(!defaults_identical) & !quiet) {
-    
-    shared_pars %>%
-      magrittr::extract(!defaults_identical) %>%
-      tl_pars[.] %>%
-      cbind(ph_pars[names(.)]) %>%
-      as.data.frame() %>%
-      tibble::rownames_to_column("par") %>%
-      magrittr::set_colnames(
-        switch(default_to,
-               photosynthesis = c("par", "tealeaves (from)", "photosynthesis (to)"),
-               tealeaves = c("par", "photosynthesis (from)", "tealeaves (to)"))
-      ) %>%
-      print()
-
-  }
-  
-  if (default_to == "photosynthesis") {
-    ph_pars %<>% c(tl_pars[!(names(tl_pars) %in% names(.))])
-    return(ph_pars)
-  } else {
-    tl_pars %<>% c(ph_pars[!(names(ph_pars) %in% names(.))])
-    return(tl_pars)
-  }
-
-}
-
-#' Replace default parameters
-#'
-#' @param obj List of default values
-#' @param replace List of replacement values
-#'
 
 replace_defaults <- function(obj, replace) {
   

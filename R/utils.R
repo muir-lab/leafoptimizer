@@ -78,6 +78,7 @@ ppfd2sun <- function(PPFD, f_par, E_q) {
 #' @param g_w conductance to water vapor in units (\eqn{\mu}mol H2O / (m^2 s Pa)) of class \code{units}.
 #' @param D_c diffusion coefficient for CO2 in air in units of m^2/s of call \code{units}
 #' @param D_w diffusion coefficient for H2O in air in units of m^2/s of call \code{units}
+#' @param unitless Logical. Should \code{units} be set?
 #'
 #' @return Value with units \eqn{\mu}mol / (m^2 s Pa) of class \code{units}.
 #' 

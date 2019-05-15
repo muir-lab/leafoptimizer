@@ -19,8 +19,6 @@ make_constants(replace = NULL)
 }
 \arguments{
 \item{replace}{A named list of parameters to replace defaults. If \code{NULL}, defaults will be used.}
-
-\item{constants}{A list of physical constants. This can be generated using the \code{make_constants} function. This is needed to ensure that CO2 and H2O conductances are internally consistent with each other.}
 }
 \value{
 \code{make_leafpar}: An object inheriting from class \code{\link{leaf_par}}\cr
@@ -120,12 +118,12 @@ PPFD \tab \code{PPFD} \tab photosynthetic photon flux density \tab \eqn{\mu}mol 
 \examples{
 library(leafoptimizer)
 
-constants <- make_constants()
-leaf_par <- make_leafpar(constants)
-enviro_par <- make_enviropar()
 bake_par <- make_bakepar()
+constants <- make_constants()
+enviro_par <- make_enviropar()
+leaf_par <- make_leafpar()
 
-leaf_par <- make_leafpar(constants,
+leaf_par <- make_leafpar(
   replace = list(
     g_sc = set_units(3, "umol/m^2/s/Pa"),
     V_cmax25 = set_units(100, "umol/m^2/s")

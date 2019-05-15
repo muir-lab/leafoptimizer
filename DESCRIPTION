@@ -1,5 +1,5 @@
 Package: leafoptimizer
-Version: 0.0.0.9000
+Version: 0.0.1
 Date: 2019-05-14
 Title: Optimize leaf traits to different environments in silico
 Authors@R: person("Chris", "Muir", role = c("aut", "cre"), email = "cdmuir@hawaii.edu")
@@ -26,8 +26,7 @@ Suggests:
     testthat,
     knitr,
     rmarkdown
-Description: A (one paragraph) description of what
-  the package does and why it may be useful.
+Description: TBA
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true

@@ -1,6 +1,6 @@
 #' Optimize leaf photosynthesis
 #' 
-#' \code{optimize_leaves}: optimize C3 photosynthesis over multiple parameter sets
+#' @description \code{optimize_leaf}: simulate C3 photosynthesis over a single parameter set
 #' 
 #' @param traits A vector of one or more character strings indicating which trait(s) to optimize. Stomatal conductance (\code{g_sc}) and stomatal ratio (\code{logit_sr}) are currently supported.
 #' 
@@ -16,15 +16,15 @@
 #' 
 #' @param set_units Logical. Should \code{units} be set? The function is faster when FALSE, but input must be in correct units or else results will be incorrect without any warning.
 
-#' @param check Logical. Should arguments checkes be done? This is intended to be disabled when \code{optimize_leaf} is called from \code{\link{optimize_leaves}} Default is TRUE.
+#' @param check Logical. Should arguments checks be done? 
 #' 
 #' @param n_init Integer. Number of initial values for each trait to try during optimization. If there are multiple traits, these initial values are crossed. For example, if \code{n_init = 3}, the total number of intitial values sets is 3, 9, 27 for 1, 2, 3 traits, respectively. This significantly increases the time, but may be important if the surface is rugged. Default is 1L.
 #' 
-#' @param progress Logical. Should a progress bar be displayed?
-#' 
 #' @param quiet Logical. Should messages be displayed?
 #' 
-#' @param parallel Logical. Should parallel processing be used via \code{\link[furrr]{future_map}}?
+#' @param refit Logical. Should optimization be retried from different starting parameters if it fails to converge? If TRUE, upon failure, \code{n_init} will increment up by 1 until successful convergence or \code{n_init > max_init}.
+#' 
+#' @param max_init Integer. If \code{refit = TRUE}, the maximum number \code{n_init} to try.
 #' 
 #' @return 
 #' A data.frame with the following \code{units} columns \cr
@@ -82,7 +82,6 @@
 #' 
 #' \code{optimize_leaf}: This function optimizes leaf traits using an integrated leaf temperature and C3 photosynthesis model under a set of environmental conditions. The leaf temperature model is described in the \code{\link[tealeaves]{tealeaves}} package. The C3 photosynthesis model is described in the \code{\link[photosynthesis]{photosynthesis-package}} package\cr
 #' \cr
-#' \code{optimize_leaves}: This function uses \code{optimize_leaf} to optimize over multiple parameter sets that are generated using \code{\link[tidyr]{crossing}}. \cr
 #' 
 #' @examples 
 #' # Single parameter set with 'optimize_leaf'
@@ -95,132 +94,10 @@
 #' carbon_costs <- list(H2O = 1000, SR = 0)
 #' optimize_leaf("g_sc", carbon_costs, bp, cs, ep, lp, n_init = 1L)
 #' 
-#' # Multiple parameter sets with 'optimize_leaves'
-#' 
-#' ep <- make_enviropar(
-#'   replace = list(
-#'     T_air = set_units(c(293.14, 298.15), "K")
-#'   )
-#' )
-#' optimize_leaves(traits, carbon_costs, bp, cs, ep, lp, n_init = 1L)
-#' 
 #' @encoding UTF-8
 #' 
 #' @export
 #' 
-
-optimize_leaves <- function(traits, carbon_costs, bake_par, constants, 
-                            enviro_par, leaf_par, set_units = TRUE, 
-                            check = TRUE, n_init = 1L, progress = TRUE, 
-                            quiet = FALSE, parallel = FALSE) {
-  
-  checkmate::assert_flag(check)
-  
-  if (check) {
-    
-    checkmate::assert_flag(set_units)
-    checkmate::assert_flag(progress)
-    checkmate::assert_flag(quiet)
-    checkmate::assert_flag(parallel)
-    checkmate::assert_integerish(n_init, len = 1L, lower = 1L)
-    
-    # Check traits ----
-    checkmate::assert_character(traits)
-    checkmate::assert_vector(traits, min.len = 1L, max.len = 3L, unique = TRUE,
-                             any.missing = FALSE)
-    
-    # Check carbon costs ----
-    check_carbon_costs(carbon_costs, quiet)
-    
-    # Check parameters ----
-    checkmate::assert_class(bake_par, "bake_par")
-    checkmate::assert_class(constants, "constants")
-    checkmate::assert_class(enviro_par, "enviro_par")
-    checkmate::assert_class(leaf_par, "leaf_par")
-    
-  }
-  
-  # Set units ----
-  if (set_units) {
-    bake_par %<>% photosynthesis::bake_par()
-    constants %<>% leafoptimizer::constants()
-    enviro_par %<>% leafoptimizer::enviro_par()
-    leaf_par %<>% leafoptimizer::leaf_par()
-  }
-  
-  # Capture units ----
-  pars <- c(leaf_par, enviro_par)
-  par_units <- purrr::map(pars, units) %>%
-    magrittr::set_names(names(pars))
-  
-  # Make parameter sets ----
-  ## cross_df() removes units. 
-  ## This code will cause errors if units are not properly set
-  pars %<>% purrr::cross_df()
-  
-  # Optimize ----
-  soln <- find_optima(traits, carbon_costs, pars, bake_par, constants, 
-                      par_units, n_init, progress, quiet, parallel)
-  
-  # Return ----
-  soln
-  
-}
-
-find_optima <- function(traits, carbon_costs, par_sets, bake_par, constants, 
-                        par_units, n_init, progress, quiet, parallel) {
-  
-  if (!quiet) {
-    glue::glue("\nOptimizing leaf trait{s1} from {n} parameter set{s2} ...", 
-               s1 = ifelse(length(traits) > 1, "s", ""), n = length(par_sets), 
-               s2 = dplyr::if_else(length(par_sets) > 1, "s", "")) %>%
-      crayon::green() %>%
-      message(appendLF = FALSE)
-  }
-  
-  if (parallel) future::plan("multiprocess")
-  
-  if (progress & !parallel) pb <- dplyr::progress_estimated(length(pars))
-  
-  soln <- suppressWarnings(
-    par_sets %>%
-      as.list() %>%
-      purrr::transpose() %>%
-      furrr::future_map_dfr(~{
-        
-        ret <- optimize_leaf(traits, carbon_costs, bake_par, constants, 
-                             .x, .x, set_units = FALSE, n_init, 
-                             check = FALSE, quiet = TRUE)
-        if (progress & !parallel) pb$tick()$print()
-        ret
-        
-      }, .progress = progress)
-  )
-  
-  # Reassign units ----
-  colnames(soln) %>%
-    glue::glue("units(soln${x}) <<- par_units${x}", x = .) %>%
-    parse(text = .) %>%
-    eval()
-  
-  soln %>%
-    dplyr::select(tidyselect::ends_with("25")) %>%
-    colnames() %>%
-    stringr::str_remove("25$") %>%
-    glue::glue("units(soln${x}) <<- par_units${x}25", x = .) %>%
-    parse(text = .) %>%
-    eval()
-  
-  soln
-  
-}
-
-#' Optimize C3 photosynthesis
-#' @description \code{optimize_leaf}: simulate C3 photosynthesis over a single parameter set
-#' @rdname optimize_leaves
-#' @refit Logical. Should optimization be retried from different starting parameters if it fails to converge? If TRUE, upon failure, \code{n_init} will increment up by 1 until successful convergence or \code{n_init > max_init}.
-#' @max_init Integer. If \code{refit = TRUE}, the maximum number \code{n_init} to try.
-#' @export
 
 optimize_leaf <- function(traits, carbon_costs, bake_par, constants, enviro_par,
                           leaf_par, set_units = TRUE, n_init = 1L, check = TRUE,
@@ -370,14 +247,6 @@ find_optimum <- function(g_sc, leafsize, sr, carbon_costs, upars, n_init,
   # Minimize carbon_balance() ----
   soln <- purrr::map_dfr(init, function(.x, ...) {
     
-    # fit <- nloptr::nloptr(unlist(.x), carbon_balance, ...)
-    # 
-    # soln <- tibble::as_tibble(t(c(fit$solution, fit$objective, fit$status))) %>%
-    #   dplyr::mutate_all(as.numeric) %>%
-    #   dplyr::mutate(message = fit$message) %>%
-    #   magrittr::set_colnames(c(names(.x), "value", "convergence", "message")) 
-    
-    # Method using optimx
     fit <- optimx::optimx(unlist(.x), carbon_balance, ...)
     
     soln <- fit %>%
@@ -390,8 +259,6 @@ find_optimum <- function(g_sc, leafsize, sr, carbon_costs, upars, n_init,
   carbon_costs = carbon_costs, upars = upars,
   method = dplyr::if_else(length(traits) == 1L, "L-BFGS-B", "nlminb"), 
   lower = bounds$lower[traits], upper = bounds$upper[traits]
-  # opts = list("algorithm" = "NLOPT_LN_BOBYQA", "xtol_rel" = 1.0e-8),
-  # lb = bounds$lower[traits], ub = bounds$upper[traits]
   ) %>% 
     dplyr::top_n(-1, .data$value)
   
@@ -412,24 +279,18 @@ carbon_balance <- function(trait_values, find_gsc, find_leafsize, find_sr,
     trait_values, 
     len = length(which(c(find_gsc, find_leafsize, find_sr)))
   )
-  # checkmate::assert_subset(names(trait_values), 
-  #                          choices = c("g_sc", "leafsize", "logit_sr"),
-  #                          empty.ok = FALSE)
   
   if (find_gsc) {
-    # upars[["g_sc"]] <- trait_values[["g_sc"]]
     upars[["g_sc"]] <- trait_values[1]
     upars[["g_sw"]] <- gc2gw(upars[["g_sc"]], upars[["D_c0"]], upars[["D_w0"]],
                              unitless = TRUE)
   }
   
   if (find_leafsize) {
-    # upars[["leafsize"]] <- trait_values[["leafsize"]]
     upars[["leafsize"]] <- ifelse(find_gsc, trait_values[2], trait_values[1])
   }
   
   if (find_sr) {
-    # upars[["logit_sr"]] <- trait_values[["logit_sr"]]
     upars[["logit_sr"]] <- dplyr::last(trait_values)
     upars[["k_sc"]] <- upars[["logit_sr"]] %>%
       stats::plogis() %>%

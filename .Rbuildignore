@@ -1,6 +1,7 @@
+R/optimize_leaves.R
+
 ^LICENSE\.md$
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^R/issues\.R$
 CONDUCT.md
-R/deprecated.R
