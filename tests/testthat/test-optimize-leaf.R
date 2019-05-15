@@ -1,6 +1,38 @@
 context("optimize_leaf")
 library(leafoptimizer)
 
+
+# Revise and uncomment
+
+# bake_par <- make_bakepar()
+# constants <- make_constants()
+# enviro_par <- make_enviropar()
+# leaf_par <- make_leafpar()
+# 
+# carbon_costs <- list(H2O = 1000, SR = 0)
+# 
+# ol1 <- optimize_leaf("g_sc", carbon_costs, bake_par, constants, enviro_par,
+#                      leaf_par)
+# 
+# ol2 <- optimize_leaf("leafsize", carbon_costs, bake_par, constants, enviro_par,
+#                      leaf_par)
+# 
+# ol3 <- optimize_leaf("sr", carbon_costs, bake_par, constants, enviro_par,
+#                      leaf_par)
+# 
+# ol4 <- optimize_leaf(c("g_sc", "leafsize"), carbon_costs, bake_par, constants,
+#                      enviro_par, leaf_par)
+# 
+# ol5 <- optimize_leaf(c("g_sc", "sr"), carbon_costs, bake_par, constants,
+#                      enviro_par, leaf_par)
+# 
+# ol6 <- optimize_leaf(c("leafsize", "sr"), carbon_costs, bake_par, constants,
+#                      enviro_par, leaf_par)
+# 
+# ol7 <- optimize_leaf(c("g_sc", "leafsize", "sr"), carbon_costs, bake_par,
+#                      constants, enviro_par, leaf_par)
+
+
 test_that("optimize_leaf calculates T_leaf and A correctly", {
   
   cs <- make_constants()

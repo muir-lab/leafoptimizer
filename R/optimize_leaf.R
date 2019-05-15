@@ -276,11 +276,12 @@ optimize_leaf <- function(traits, carbon_costs, bake_par, constants, enviro_par,
                        carbon_costs, upars, n_init, quiet)
   
   # Refit ----
+  n_init %<>% magrittr::add(1L)
   while (refit & soln$convergence != 0 & n_init <= max_init) {
-    n_init %<>% magrittr::add(1L)
+    
     if (!quiet) {
-      glue::glue("\nRefitting with n_init = {n} ...", n = n_init) %>%
-        crayon::green() %>%
+      glue::glue("\n  Refitting with n_init = {n} ...\n", n = n_init) %>%
+        crayon::cyan() %>%
         message(appendLF = FALSE)
       
     }
@@ -288,6 +289,8 @@ optimize_leaf <- function(traits, carbon_costs, bake_par, constants, enviro_par,
                          leafsize = ("leafsize" %in% traits), 
                          sr = ("sr" %in% traits), 
                          carbon_costs, upars, n_init, quiet)
+    n_init %<>% magrittr::add(1L)
+    
   }
   
   # Check results ----
