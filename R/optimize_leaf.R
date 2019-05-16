@@ -307,9 +307,9 @@ carbon_balance <- function(trait_values, find_gsc, find_leafsize, find_sr,
   
   E <- tealeaves::E(ph[["T_leaf"]], upars, unitless = TRUE)
   
-  drop_units(ph[["g_sw"]] * stats::plogis(ph[["logit_sr"]]) * 
-               carbon_costs[["SR"]]) +
-    E * 1e6 - drop_units(carbon_costs[["H2O"]] * ph[["A"]])
+  -(drop_units(ph[["A"]]) - E * 1e6 * carbon_costs[["H2O"]] - 
+      drop_units(ph[["g_sw"]] * stats::plogis(ph[["logit_sr"]]) *
+                   carbon_costs[["SR"]]))
   
 }
 
