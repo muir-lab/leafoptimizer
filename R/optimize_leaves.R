@@ -16,7 +16,7 @@
 #' 
 #' @param set_units Logical. Should \code{units} be set? The function is faster when FALSE, but input must be in correct units or else results will be incorrect without any warning.
 
-#' @param check Logical. Should arguments checkes be done? This is intended to be disabled when \code{optimize_leaf} is called from \code{\link{optimize_leaves}} Default is TRUE.
+#' @param check Logical. Should arguments checks be done? This is intended to be disabled when \code{optimize_leaf} is called from \code{\link{optimize_leaves}} Default is TRUE.
 #' 
 #' @param n_init Integer. Number of initial values for each trait to try during optimization. If there are multiple traits, these initial values are crossed. For example, if \code{n_init = 3}, the total number of intitial values sets is 3, 9, 27 for 1, 2, 3 traits, respectively. This significantly increases the time, but may be important if the surface is rugged. Default is 1L.
 #' 
