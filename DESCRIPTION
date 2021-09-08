@@ -1,6 +1,6 @@
 Package: leafoptimizer
-Version: 0.0.2.9000
-Date: 2019-05-17
+Version: 0.0.2
+Date: 2021-09-07
 Title: Optimize leaf traits to different environments in silico
 Authors@R: person("Chris", "Muir", role = c("aut", "cre"), email = "cdmuir@hawaii.edu")
 Depends: R (>= 3.5.0), units (>= 0.6.0)
